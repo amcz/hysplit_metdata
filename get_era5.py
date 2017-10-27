@@ -36,7 +36,7 @@ writes a file called new_api2arl.cfg
 """
 
 
-def write_cfg(tparamlist, dparamlist, cfgname = 'new_api2arl.cfg'):
+def write_cfg(tparamlist, dparamlist, levs, cfgname = 'new_era52arl.cfg'):
     """writes a .cfg file which is used by the fortran conversion program era52arl to
        read the grib files and convert them into a meteorological file that HYSPLTI can use.
     """
@@ -96,6 +96,11 @@ def write_cfg(tparamlist, dparamlist, cfgname = 'new_api2arl.cfg'):
         sfccnv +=  sname[sfc][2] + ", " 
         sfcarl += "'" + sfc + "', " 
 
+    numlev = str(len(levs))
+    levstr=''
+    for lv in levs[1:]:
+       levstr +=  str(lv)   + ', '
+
     with open(cfgname, "w") as fid:
          #the -2 removes the last space and comma from the string.
          fid.write('&SETUP\n') 
@@ -112,6 +117,8 @@ def write_cfg(tparamlist, dparamlist, cfgname = 'new_api2arl.cfg'):
          fid.write('sfcnum = ' + sfccat[:-2] + '\n')
          fid.write('sfccnv = ' + sfccnv[:-2] + '\n')
          fid.write('sfcarl = ' + sfcarl[:-2] + '\n')
+         fid.write('numlev = ' + numlev  + '\n')
+         fid.write('plev = ' + levstr[:-2]  + '\n')
          fid.write('/\n')
 
 
@@ -197,7 +204,7 @@ def grib2arlscript(scriptname, file3d, file2d, filetppt, day, tstr, hname='ERA5'
    tempname = tstr + '.ARL'
    fname = hname + day.strftime("_%Y%m%d.ARL")
    fid.write('mv DATA.ARL ' +  tempname + '\n')
-   fid.write('mv MESSAGE MESSAGE.'  +fname + '.' + tstr + ' \n')
+   fid.write('mv ERA52ARL.MESSAGE MESSAGE.'  +fname + '.' + tstr + ' \n')
    if tstr=='T1':
       fid.write('cat ' + tempname + ' > ' +fname + '\n')
    else:
@@ -283,13 +290,13 @@ tppt_datestr = tpptstart.strftime('%Y-%m-%d')
 ###available on these levels and they are also interpolated to 37 pressure, 16 potential temperature and 1 potential vorticity level(s).
 
 ##model level fields are in grib2. All other fields (including pressure levels) are in grib1 format.
-if options.leveltype == "pl":
-    levtype = "pl"
-elif options.leveltype == "ml":
-    levtype = "ml"
-else:
-    print "WARNING: leveltype not supported. Only pl (pressure levels) or ml (model levels) supported"
-    sys.exit()
+#if options.leveltype == "pl":
+levtype = "pl"
+#elif options.leveltype == "ml":
+#    levtype = "ml"
+#else:
+#    print "WARNING: leveltype not supported. Only pl (pressure levels) or ml (model levels) supported"
+#    sys.exit()
 
 ##Pick pressure levels to retrieve. ################################################################
 ##Can only pick a top level 
@@ -511,7 +518,7 @@ for ptime in ptimelist:
 
 param2da.extend(param2df)
 #write a cfg file for the converter.
-write_cfg(param3d, param2da)
+write_cfg(param3d, param2da, levs)
 mid.close()
 
 #Notes on the server.retrieve function.
