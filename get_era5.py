@@ -96,9 +96,7 @@ def write_cfg(tparamlist, dparamlist, levs, cfgname = 'new_era52arl.cfg'):
         sfcarl += "'" + sfc + "', " 
 
     numlev = str(len(levs))
-    levstr=''
-    for lv in levs[1:]:
-       levstr +=  str(lv)   + ', '
+    levstr = str.join(', ', map(str, levs))
 
     with open(cfgname, "w") as fid:
          #the -2 removes the last space and comma from the string.
@@ -117,7 +115,7 @@ def write_cfg(tparamlist, dparamlist, levs, cfgname = 'new_era52arl.cfg'):
          fid.write('sfccnv = ' + sfccnv[:-2] + '\n')
          fid.write('sfcarl = ' + sfcarl[:-2] + '\n')
          fid.write('numlev = ' + numlev  + '\n')
-         fid.write('plev = ' + levstr[:-2]  + '\n')
+         fid.write('plev = ' + levstr.strip()  + '\n')
          fid.write('/\n')
 
 
@@ -184,33 +182,42 @@ def createparamstr(paramlist):
             print "No code for " , key , " available." 
     return paramstr
 
-
-def grib2arlscript(scriptname, file3d, file2d, filetppt, day, tstr, hname='ERA5'):
+def grib2arlscript(scriptname, shfiles, day, tstr, hname='ERA5'):
    """writes a line in a shell script to run era51arl. $MDL is the location of the era52arl program.
    """
    print "writing to " , scriptname
    fid = open(scriptname , 'a')
+   checkens = ['e0', 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9']
+   for files in shfiles:
+       print 'FILES', files
+       inputstr = []
+       inputstr.append('${MDL}/era52arl')
+       inputstr.append('-i' + files[0])
+       inputstr.append('-a' + files[1])         #analysis file with 2d fields
+       try:
+          inputstr.append('-f' + files[2]) #file with forecast fields.
+       except:
+          pass
+       for arg in inputstr:
+           fid.write(arg + ' ')
+       fid.write('\n')
+       tempname = tstr + '.ARL'
+       hname2 = hname
+       for ens in checkens:
+           print ens, files[0]
+           if ens in files[0]:
+              hname2 = hname + '_' + ens  
+              print 'YES'
+       fname = hname2 + day.strftime("_%Y%m%d.ARL")
+       fid.write('mv DATA.ARL ' +  tempname + '\n')
+       fid.write('mv ERA52ARL.MESSAGE MESSAGE.'  +fname + '.' + tstr + ' \n')
+       if tstr=='T1':
+          fid.write('cat ' + tempname + ' > ' +fname + '\n')
+       else:
+          fid.write('cat ' + tempname + ' >> ' +fname + '\n')
+       fid.write('rm ' + tempname + '\n')
+       fid.write('\n')
 
-   inputstr = []
-   inputstr.append('${MDL}/era52arl')
-   inputstr.append('-i' + file3d)
-   inputstr.append('-a' + file2d)         #analysis file with 2d fields
-   if filetppt != '':
-      inputstr.append('-f' + filetppt) #file with forecast fields.
-   for arg in inputstr:
-       fid.write(arg + ' ')
-   fid.write('\n')
-   tempname = tstr + '.ARL'
-   fname = hname + day.strftime("_%Y%m%d.ARL")
-   fid.write('mv DATA.ARL ' +  tempname + '\n')
-   fid.write('mv ERA52ARL.MESSAGE MESSAGE.'  +fname + '.' + tstr + ' \n')
-   if tstr=='T1':
-      fid.write('cat ' + tempname + ' > ' +fname + '\n')
-   else:
-      fid.write('cat ' + tempname + ' >> ' +fname + '\n')
-   fid.write('rm ' + tempname + '\n')
-   fid.write('\n')
- 
    fid.close()
 
 ##Parse command line arguments and set defaults#####
@@ -237,6 +244,12 @@ parser.add_option("-o", type="string" , dest="fname" , default='',
                   If a day range is specified then the default will be DATASET_YYYY.MMM.dd-dd.")
 parser.add_option("--3d", action="store_false" , dest="retrieve2d" , default='true',
                   help = "If set then it will only retrieve 3d data.")
+parser.add_option("-s", type="string" , dest="stream" , default='oper',
+                  help = "default is oper which retrieves deterministic analyses. \
+                          enda will retrieve ensemble.")
+parser.add_option("-e", type="string" , dest="enlist" , default='0:1:2:3:4:5:6:7:8:9',
+                  help = "list of ensemble members to download. Numbers (0 -9) separated by colons. \
+                          default is to download all 10 ensembles 0:1:2:3:4:5:6:7:8:9")
 parser.add_option("--noprecip", action="store_false" , dest="get_precip" , default= True, 
                   help = "Default is to retrieve 2D fields in a .2d.grib file which has analysis values for \
                           and a separate 2D file in a .2df.grib file which has forecast values. \
@@ -285,6 +298,21 @@ tpptstart = startdate - datetime.timedelta(hours=24)  #need to retrieve forecast
 datestr = startdate.strftime('%Y-%m-%d') 
 tppt_datestr = tpptstart.strftime('%Y-%m-%d') 
 
+stream = options.stream
+if stream not in ['oper', 'enda']:
+   print "Warning: stream" + options.stream + " is not supported. Only oper and enda streams supported"
+   sys.exit()
+if stream == 'enda':
+   print "retrieving ensemble"
+   enlist = options.enlist.strip().split(":")
+   check_enlist = map(str, range(0,10,1))
+   for en in enlist:
+       if en not in check_enlist:
+          print 'Warning: ' , en , " not valid ensemble number. Must be 0 through 9"
+          print 'Check -e option input'
+          sys.exit() 
+else:
+   enlist=[-99]
 ###"137 hybrid sigma/pressure (model) levels in the vertical with the top level at 0.01hPa. Atmospheric data are
 ###available on these levels and they are also interpolated to 37 pressure, 16 potential temperature and 1 potential vorticity level(s).
 
@@ -306,11 +334,12 @@ if levtype == "pl":
     nlevels = totlevs[dataset]
     #levs = range(750,1025,25) + range(150,750,50) + range(100,150,25) + [1,2,3,5,6,10,20,30,50,70]
     levs = range(750,1025,25) + range(300,750,50) + range(100,275,25) + [1,2,3,5,7,10,20,30,50,70]
-    levs = sorted(levs)
+    levs = sorted(levs, reverse=True)
     if options.toplevel == 1: 
        levstr = 'all'
     else:
        levs = filter(lambda y: y>=options.toplevel, levs)
+       levs = sorted(levs, reverse=True)
        levstr = str(levs[0])
        nlevels = len(levstr)
        for lv in levs[1:]:
@@ -355,17 +384,27 @@ server = ECMWFDataServer(verbose=False)
 ##wtype = "4v"   ##4D variational analysis is available as well as analysis.
 
 wtype="an" 
-##need to break each day into four time periods to keep 3d grib files at around 1.6 GB
-wtime1 =  "00:00:00/01:00:00/02:00:00/03:00:00/04:00:00/05:00:00"
-wtime2 =  "06:00:00/07:00:00/08:00:00/09:00:00/10:00:00/11:00:00"
-wtime3 =  "12:00:00/13:00:00/14:00:00/15:00:00/16:00:00/17:00:00"
-wtime4 =  "18:00:00/19:00:00/20:00:00/21:00:00/22:00:00/23:00:00"
-if options.getfullday:
-    wtimelist = [wtime1 + '/' + wtime2 + '/' + wtime3 + '/' + wtime4]
-else: #retrieve day in 4 different files with 6 hour increments.
-    wtimelist = [wtime1, wtime2, wtime3, wtime4]
-#wtimelist = [wtime1]
 
+if stream == 'oper':
+##need to break each day into four time periods to keep 3d grib files at around 1.6 GB
+    wtime1 =  "00:00:00/01:00:00/02:00:00/03:00:00/04:00:00/05:00:00"
+    wtime2 =  "06:00:00/07:00:00/08:00:00/09:00:00/10:00:00/11:00:00"
+    wtime3 =  "12:00:00/13:00:00/14:00:00/15:00:00/16:00:00/17:00:00"
+    wtime4 =  "18:00:00/19:00:00/20:00:00/21:00:00/22:00:00/23:00:00"
+    if options.getfullday:
+        wtimelist = [wtime1 + '/' + wtime2 + '/' + wtime3 + '/' + wtime4]
+    else: #retrieve day in 4 different files with 6 hour increments.
+        wtimelist = [wtime1, wtime2, wtime3, wtime4]
+    #wtimelist = [wtime1]
+
+#ensemble data only availabe every 3 hours.
+elif stream == 'enda':
+    wtime1 =  "00:00:00/03:00:00/06:00:00/09:00:00/12:00:00/15:00:00/18:00:00/21:00:00"
+    wtimelist = [wtime1]
+
+
+#___________________This block for setting time and step for surface fields that are only 
+#                   available as forecast.
 ###In order to make the forecast field files have matching time periods
 ###use the following times and steps.
 ###start at 18  on the previous day with step of 6 through 12 to get hours 0 through 05.
@@ -376,58 +415,91 @@ else: #retrieve day in 4 different files with 6 hour increments.
 ###NOTE - accumulated fields are 0 for step of 0. So cannot use step0.
 ##Always retrieve full day for the forecast fields.
 #if options.getfullday:
-ptimelist = ["18:00:00/06:00:00"]
-pstep = ["/".join(map(str,range(1,13)))]
-pstart=[tppt_datestr+ '/' + datestr]
-#else:
-#    ptime1 = "18:00:00"
-#    step1 = "/".join(map(str, range(6,12)))
-#    ptime2 = "06:00:00"
-#    step2 = "/".join(map(str, range(0,6)))
-#    ptime3 = "06:00:00"
-#    step3 = "/".join(map(str, range(6,12)))
-#    ptime4 = "18:00:00"
-#    step4 = "/".join(map(str, range(0,6)))
-#    pstart = [tppt_datestr, datestr, datestr, datestr]
-#    ptime = [ptime1, ptime2, ptime3, ptime4]
-#    pstep = [step1, step2, step3, step4]
+if stream == 'oper':
+    ptimelist = ["18:00:00/06:00:00"]
+    pstep = ["/".join(map(str,range(1,13)))]
+    pstart=[tppt_datestr+ '/' + datestr]
+
+elif stream == 'enda':  #ensemble output.
+    ##use steps 3,6,9, 12.
+    ##time of 18 step 3 gives forecast at 21
+    ##time of 18 step 6 gives forecast at 00
+    ##time of 18 step 9 gives forecast at 03
+    ##time of 18 step 12 gives forecast at 06
+    ##time of 06 step 3 gives forecast at 09
+    ##time of 06 step 6 gives forecast at 12
+    ##time of 06 step 9 gives forecast at 15
+    ##time of 06 step 12 gives forecast at 18
+
+    ptimelist = ["18:00:00/06:00:00"]
+    pstep = ["/".join(map(str,range(3,15,3)))]
+    pstart=[tppt_datestr+ '/' + datestr]
 
 
 #grid: 0.3/0.3: "For era5 data, the point interval on the native Gaussian grid is about 0.3 degrees. 
 #You should set the horizontal resolution no higher than 0.3x0.3 degrees (about 30 km), approximating the irregular grid spacing
 #on the native Gaussian grid.
 
+f3list =[]
+f2list =[]
+f2flist = []
+
 iii=1
 ###SPLIT retrieval into four time periods so files will be smaller.
 for wtime in wtimelist:
-    print wtime
+    #print wtime
     if options.getfullday:
-        tstr = '.D' + str(iii) + '.grib'
+        tstr =  '.grib'
     else:
         tstr = '.T' + str(iii) + '.grib'
     ###need to set the grid parameter otherwise will not be on regular grid and converter will not handle.
     ####retrieving 3d fields
-    if options.retrieve3d:
+if levtype=='pl':
+    param3d = ['TEMP' , 'UWND', 'VWND' , 'WWND' , 'RELH' , 'HGTS' ]
+elif levtype=='ml':
+    param3d = ['TEMP' , 'UWND', 'VWND' , 'WWND' , 'SPHU']
+if options.retrieve3d:
         ##have choice between getting pressure levels or model levels.
-        #param3d = ['TEMP' , 'UWND', 'VWND' , 'WWND' , 'RELH' , 'HGTS', 'SPHU' ]
-        if levtype=='pl':
-            param3d = ['TEMP' , 'UWND', 'VWND' , 'WWND' , 'RELH' , 'HGTS' ]
-        elif levtype=='ml':
-            param3d = ['TEMP' , 'UWND', 'VWND' , 'WWND' , 'SPHU']
-        paramstr = createparamstr(param3d)
-        with open(mfilename, 'w') as mid: 
-            mid.write('retrieving 3d data \n')
-            mid.write(paramstr + '\n')
-            mid.write('time ' + wtime + '\n')
-            mid.write('type ' + wtype + '\n')
-            mid.write('date ' + datestr + '\n')
-            mid.write('-------------------\n')
-        if options.run:
+    #param3d = ['TEMP' , 'UWND', 'VWND' , 'WWND' , 'RELH' , 'HGTS', 'SPHU' ]
+    #if levtype=='pl':
+    #    param3d = ['TEMP' , 'UWND', 'VWND' , 'WWND' , 'RELH' , 'HGTS' ]
+    #elif levtype=='ml':
+    #    param3d = ['TEMP' , 'UWND', 'VWND' , 'WWND' , 'SPHU']
+    paramstr = createparamstr(param3d)
+    with open(mfilename, 'w') as mid: 
+        mid.write('retrieving 3d data \n')
+        mid.write(paramstr + '\n')
+        mid.write('time ' + wtime + '\n')
+        mid.write('type ' + wtype + '\n')
+        mid.write('date ' + datestr + '\n')
+        mid.write('-------------------\n')
+    if options.run and stream=='oper':
+        f3list.append(file3d+ tstr)
+        server.retrieve({
+                    'class'   : "ea",
+                    'expver'  : "1",
+                    'dataset' : dataset,
+                    'stream'  : stream,   #stays same for era5.
+                    'levtype' :  levtype,
+                    'levelist':  levstr,
+                    'date'    :  datestr,
+                    'time'    :  wtime,
+                    'origin'  : "all",
+                    'type'    :  wtype,
+                    'param'   :  paramstr,
+                    'target'  :  file3d  + tstr,
+                    'grid'    : "0.3/0.3",
+                    'area'    : area
+                   })
+    if options.run and stream=='enda':
+        for emember in enlist:
+            estr = '.e' + emember  
+            f3list.append(file3d+estr + tstr)
             server.retrieve({
                         'class'   : "ea",
                         'expver'  : "1",
                         'dataset' : dataset,
-                        'stream'  : "oper",   #stays same for era5.
+                        'stream'  : stream,   #stays same for era5.
                         'levtype' :  levtype,
                         'levelist':  levstr,
                         'date'    :  datestr,
@@ -435,47 +507,74 @@ for wtime in wtimelist:
                         'origin'  : "all",
                         'type'    :  wtype,
                         'param'   :  paramstr,
-                        'target'  :  file3d  + tstr,
+                        'target'  :   file3d  + estr + tstr,
                         'grid'    : "0.3/0.3",
-                        'area'    : area
+                        'area'    : area,
+                        'number'  : emember
                        })
+                
+param2df = []
 
-    param2df = []
-    param2da = []
-    ####retrieving 2d fields
-    if options.retrieve2d:
-        param2da = ['T02M' , 'V10M' , 'U10M', 'TCLD', 'PRSS',  'DP2M', 'PBLH', 'CAPE', 'SHGT']
-        paramstr = createparamstr(param2da)
-        with open(mfilename, 'a') as mid: 
-            mid.write('retrieving 2d data \n')
-            mid.write(paramstr + '\n')
-            mid.write('time ' + wtime + '\n')
-            mid.write('type ' + wtype + '\n')
-            mid.write('date ' + datestr + '\n')
-            mid.write('-------------------\n')
-        if options.run:
+param2df = []
+param2da = ['T02M' , 'V10M' , 'U10M', 'TCLD', 'PRSS',  'DP2M', 'PBLH', 'CAPE', 'SHGT']
+####retrieving 2d fields
+if options.retrieve2d:
+    #param2da = ['T02M' , 'V10M' , 'U10M', 'TCLD', 'PRSS',  'DP2M', 'PBLH', 'CAPE', 'SHGT']
+    paramstr = createparamstr(param2da)
+    with open(mfilename, 'a') as mid: 
+        mid.write('retrieving 2d data \n')
+        mid.write(paramstr + '\n')
+        mid.write('time ' + wtime + '\n')
+        mid.write('type ' + wtype + '\n')
+        mid.write('date ' + datestr + '\n')
+        mid.write('-------------------\n')
+    if options.run and stream == 'oper':
+        f2list.append(file2d+tstr)
+        server.retrieve({
+                    'class'   : "ea",
+                    'expver'  : "1",
+                    'number'  : "0/1/2/3/4/5/6/7/8/9",
+                    'dataset' : dataset,
+                    #'step'    : stepsz,
+                    'stream'  : stream,
+                    'levtype' : "sfc",
+                    'date'    :  datestr,
+                    'time'    :  wtime,
+                    #'origin'  : "all",
+                    'type'    :  wtype,
+                    'param'   :  paramstr,
+                    'target'  : file2d + tstr,
+                    'grid'    : "0.3/0.3",
+                    'area'    : area
+                       })
+    if options.run and stream == 'enda':
+        for emember in enlist:
+            estr = '.e' + emember  
+            f2list.append(file2d+estr+tstr)
             server.retrieve({
                         'class'   : "ea",
                         'expver'  : "1",
-                        'number'  : "0/1/2/3/4/5/6/7/8/9",
+                        'number'  : emember,
                         'dataset' : dataset,
                         #'step'    : stepsz,
-                        'stream'  : "oper",
+                        'stream'  : stream,
                         'levtype' : "sfc",
                         'date'    :  datestr,
                         'time'    :  wtime,
                         #'origin'  : "all",
                         'type'    :  wtype,
                         'param'   :  paramstr,
-                        'target'  : file2d + tstr,
+                        'target'  : file2d + estr + tstr,
                         'grid'    : "0.3/0.3",
                         'area'    : area
                            })
 
-    if options.grib2arl:
-       sname = options.dir + dstr2 + '_ecm2arl.sh'
-       grib2arlscript(sname, f3d+tstr, f2d+tstr, ftppt+tstr, startdate, 'T'+str(iii)) 
-    iii+=1
+    shfiles = zip(f3list, f2list) 
+if options.grib2arl:
+   sname = options.dir + dstr2 + '_ecm2arl.sh'
+   #grib2arlscript(sname, f3d+tstr, f2d+tstr, ftppt+tstr, startdate, 'T'+str(iii), enlist=enlist) 
+   grib2arlscript(sname, shfiles, startdate, 'T'+str(iii)) 
+iii+=1
 
 iii=1 
 for ptime in ptimelist:
@@ -496,12 +595,13 @@ for ptime in ptimelist:
                mid.write('date ' + tppt_datestr + '\n')
            param2df = ['TPP1', 'SHTF' , 'DSWF', 'LTHF', 'USTR']
            paramstr = createparamstr(param2df)
-           if options.run:
-            server.retrieve({
+           if options.run and stream == 'oper':
+               f2flist.append(filetppt+tstr)
+               server.retrieve({
                                'class'   : "ea",
                                'expver'  : "1",
                                'dataset' : dataset,
-                                'stream'  : "oper",
+                                'stream'  : stream,
                                 'levtype' : "sfc",
                                 'date'    : pstart[iii-1],
                                 'time'    : ptime,
@@ -512,13 +612,34 @@ for ptime in ptimelist:
                                 'target'  : filetppt + tstr,
                                 'grid'    : "0.3/0.3",
                                 'area'    : area
-                        })
+                                })
+           elif options.run and stream == 'enda':
+               for emember in enlist:
+                   estr = '.e' + emember  
+                   f2flist.append(filetppt+estr+tstr)
+                   server.retrieve({
+                               'class'   : "ea",
+                               'number'  : emember,
+                               'expver'  : "1",
+                               'dataset' : dataset,
+                                'stream'  : stream,
+                                'levtype' : "sfc",
+                                'date'    : pstart[iii-1],
+                                'time'    : ptime,
+                                'step'    : pstep[iii-1],
+                                #'origin'  : "all",
+                                'type'    : "fc",
+                                'param'   :  paramstr,
+                                'target'  : filetppt + estr+ tstr,
+                                'grid'    : "0.3/0.3",
+                                'area'    : area
+                                })
+           shfiles = zip(f3list, f2list, f2flist) 
     iii+=1
 
 param2da.extend(param2df)
 #write a cfg file for the converter.
 write_cfg(param3d, param2da, levs)
-mid.close()
 
 #Notes on the server.retrieve function.
 #Seperate lists with a /
