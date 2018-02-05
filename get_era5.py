@@ -32,6 +32,10 @@ writes a file called new_era52arl.cfg
 
 if the -g option is set will write a shell script to run the era52arl utility.
 
+2/5/2018 -s enda will set stream=enda which will retrieve ERA5 ensemble.
+         -e will set the ensemble members to retrieve. Downloads each ensemble member to its own file.
+            
+
 """
 
 
@@ -185,11 +189,9 @@ def createparamstr(paramlist):
 def grib2arlscript(scriptname, shfiles, day, tstr, hname='ERA5'):
    """writes a line in a shell script to run era51arl. $MDL is the location of the era52arl program.
    """
-   print "writing to " , scriptname
    fid = open(scriptname , 'a')
    checkens = ['e0', 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9']
    for files in shfiles:
-       print 'FILES', files
        inputstr = []
        inputstr.append('${MDL}/era52arl')
        inputstr.append('-i' + files[0])
@@ -204,10 +206,8 @@ def grib2arlscript(scriptname, shfiles, day, tstr, hname='ERA5'):
        tempname = tstr + '.ARL'
        hname2 = hname
        for ens in checkens:
-           print ens, files[0]
            if ens in files[0]:
               hname2 = hname + '_' + ens  
-              print 'YES'
        fname = hname2 + day.strftime("_%Y%m%d.ARL")
        fid.write('mv DATA.ARL ' +  tempname + '\n')
        fid.write('mv ERA52ARL.MESSAGE MESSAGE.'  +fname + '.' + tstr + ' \n')
