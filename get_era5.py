@@ -11,7 +11,7 @@ import string
 MAIN PROGRAM: retrieves ecmwf ERA5 dataset.
 PRGRMMR: Alice Crawford    ORG: CICS-MD  DATE:2017-10-16
 
-PYTHON 2.7
+PYTHON 3.x
 
 ABSTRACT: Retrieves ECMWF ERA5 grib files for use by HYSPLIT.
 
@@ -35,7 +35,10 @@ if the -g option is set will write a shell script to run the era52arl utility.
 2/5/2018 -s enda will set stream=enda which will retrieve ERA5 ensemble.
          -e will set the ensemble members to retrieve. Downloads each ensemble member to its own file.
             
+9/10/2018 converted to python3 from python 2.7
 
+Tried downloading all ensemble members in the same file to see if it would speed up download.
+This would require modification of the conversion program.
 """
 
 
@@ -49,7 +52,7 @@ def write_cfg(tparamlist, dparamlist, levs, cfgname = 'new_era52arl.cfg'):
     #the short name and indicatorOfParameter can be found by doing a grib_dump
     #or tables in the ERA5 documentation - 
     #https://software.ecmwf.int/wiki/display/CKB/ERA5+data+documentation#ERA5datadocumentaion-Paramterlistings
-    print dparamlist
+    print(dparamlist)
     sname = {}
     sname['TPP1'] = ['tp','228','1.0']       #units of m. multiplier is 1.          
     sname['SHTF'] = ['sshf','146','0.00028'] #units J/m^2 (surface sensible heat flux) (divide by 3600 to get W/m^2)     
@@ -100,7 +103,7 @@ def write_cfg(tparamlist, dparamlist, levs, cfgname = 'new_era52arl.cfg'):
         sfcarl += "'" + sfc + "', " 
 
     numlev = str(len(levs))
-    levstr = str.join(', ', map(str, levs))
+    levstr = str.join(', ', list(map(str, levs)))
 
     with open(cfgname, "w") as fid:
          #the -2 removes the last space and comma from the string.
@@ -176,14 +179,14 @@ def createparamstr(paramlist):
     paramstr = ''
     i=0
     for key in paramlist:
-        if key in param.keys():
+        if key in list(param.keys()):
             if i == 0:
                paramstr += param[key] 
             else:
                paramstr += '/' + param[key] 
             i+=1
         else:
-            print "No code for " , key , " available." 
+            print("No code for " , key , " available.") 
     return paramstr
 
 def grib2arlscript(scriptname, shfiles, day, tstr, hname='ERA5'):
@@ -300,16 +303,16 @@ tppt_datestr = tpptstart.strftime('%Y-%m-%d')
 
 stream = options.stream
 if stream not in ['oper', 'enda']:
-   print "Warning: stream" + options.stream + " is not supported. Only oper and enda streams supported"
+   print("Warning: stream" + options.stream + " is not supported. Only oper and enda streams supported")
    sys.exit()
 if stream == 'enda':
-   print "retrieving ensemble"
+   print("retrieving ensemble")
    enlist = options.enlist.strip().split(":")
-   check_enlist = map(str, range(0,10,1))
+   check_enlist = list(map(str, list(range(0,10,1))))
    for en in enlist:
        if en not in check_enlist:
-          print 'Warning: ' , en , " not valid ensemble number. Must be 0 through 9"
-          print 'Check -e option input'
+          print('Warning: ' , en , " not valid ensemble number. Must be 0 through 9")
+          print('Check -e option input')
           sys.exit() 
 else:
    enlist=[-99]
@@ -333,22 +336,22 @@ if levtype == "pl":
     totlevs['era5'] = 37
     nlevels = totlevs[dataset]
     #levs = range(750,1025,25) + range(150,750,50) + range(100,150,25) + [1,2,3,5,6,10,20,30,50,70]
-    levs = range(750,1025,25) + range(300,750,50) + range(100,275,25) + [1,2,3,5,7,10,20,30,50,70]
+    levs = list(range(750,1025,25)) + list(range(300,750,50)) + list(range(100,275,25)) + [1,2,3,5,7,10,20,30,50,70]
     levs = sorted(levs, reverse=True)
     if options.toplevel == 1: 
        levstr = 'all'
     else:
-       levs = filter(lambda y: y>=options.toplevel, levs)
+       levs = [y for y in levs if y>=options.toplevel]
        levs = sorted(levs, reverse=True)
        levstr = str(levs[0])
        nlevels = len(levstr)
        for lv in levs[1:]:
            levstr += '/' + str(lv)  
-    print 'Retrieve levels ' , levstr
+    print('Retrieve levels ' , levstr)
 else:
     ##level 40 is about 24.5 km. Level 137 is 10 m
     ##level 49 is about 20 km.
-    levstr = "/".join(map(str, range(49,137)))
+    levstr = "/".join(map(str, list(range(49,137))))
 ##########################################################################################
 
 
@@ -376,7 +379,7 @@ file2d = options.dir + f2d
 filetppt = options.dir + ftppt
 
 #datestr = str(year) + monthstr + firstdaystr + '/to/' + str(year) + monthstr + lastdaystr
-print "Retrieve for: " , datestr
+print("Retrieve for: " , datestr)
 
 server = ECMWFDataServer(verbose=False)
 
@@ -417,7 +420,7 @@ elif stream == 'enda':
 #if options.getfullday:
 if stream == 'oper':
     ptimelist = ["18:00:00/06:00:00"]
-    pstep = ["/".join(map(str,range(1,13)))]
+    pstep = ["/".join(map(str,list(range(1,13))))]
     pstart=[tppt_datestr+ '/' + datestr]
 
 elif stream == 'enda':  #ensemble output.
@@ -432,7 +435,7 @@ elif stream == 'enda':  #ensemble output.
     ##time of 06 step 12 gives forecast at 18
 
     ptimelist = ["18:00:00/06:00:00"]
-    pstep = ["/".join(map(str,range(3,15,3)))]
+    pstep = ["/".join(map(str,list(range(3,15,3))))]
     pstart=[tppt_datestr+ '/' + datestr]
 
 
@@ -510,7 +513,7 @@ if options.retrieve3d:
                         'target'  :   file3d  + estr + tstr,
                         'grid'    : "0.3/0.3",
                         'area'    : area,
-                        'number'  : emember
+                        'number'  : "0/1/2/3/4/5/6/7/8/9" 
                        })
                 
 param2df = []
@@ -533,7 +536,7 @@ if options.retrieve2d:
         server.retrieve({
                     'class'   : "ea",
                     'expver'  : "1",
-                    'number'  : "0/1/2/3/4/5/6/7/8/9",
+                    #'number'  : "0/1/2/3/4/5/6/7/8/9",
                     'dataset' : dataset,
                     #'step'    : stepsz,
                     'stream'  : stream,
@@ -554,7 +557,8 @@ if options.retrieve2d:
             server.retrieve({
                         'class'   : "ea",
                         'expver'  : "1",
-                        'number'  : emember,
+                        #'number'  : emember,
+                        'number'  : "0/1/2/3/4/5/6/7/8/9",
                         'dataset' : dataset,
                         #'step'    : stepsz,
                         'stream'  : stream,
@@ -569,7 +573,7 @@ if options.retrieve2d:
                         'area'    : area
                            })
 
-    shfiles = zip(f3list, f2list) 
+    shfiles = list(zip(f3list, f2list)) 
 if options.grib2arl:
    sname = options.dir + dstr2 + '_ecm2arl.sh'
    #grib2arlscript(sname, f3d+tstr, f2d+tstr, ftppt+tstr, startdate, 'T'+str(iii), enlist=enlist) 
@@ -619,7 +623,8 @@ for ptime in ptimelist:
                    f2flist.append(filetppt+estr+tstr)
                    server.retrieve({
                                'class'   : "ea",
-                               'number'  : emember,
+                               #'number'  : emember,
+                                'number'  : "0/1/2/3/4/5/6/7/8/9",
                                'expver'  : "1",
                                'dataset' : dataset,
                                 'stream'  : stream,
@@ -634,7 +639,7 @@ for ptime in ptimelist:
                                 'grid'    : "0.3/0.3",
                                 'area'    : area
                                 })
-           shfiles = zip(f3list, f2list, f2flist) 
+           shfiles = list(zip(f3list, f2list, f2flist)) 
     iii+=1
 
 param2da.extend(param2df)
