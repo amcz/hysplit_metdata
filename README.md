@@ -4,7 +4,7 @@ ERA5 will soon only be available through the cdsapi.
 
 Code to download ERA5 meteorological data from ECMWF that will suitable for converting to ARL format for ingestion into HYSPLIT.
 
-There may be an problem with the  velocity fiels on the pressure levels. See:
+There may be a problem with the  velocity fields on the pressure levels. See:
 https://confluence.ecmwf.int/pages/viewpage.action?pageId=127305868
 
 PYTHON 3.x
