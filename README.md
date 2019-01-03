@@ -20,7 +20,7 @@ The program will write a file called new_era52arl.cfg. This file can be used as 
 It should be renamed  era52arl.cfg  to be read automatically by the program.
 
 # installing cdsapi
-See https://confluence.ecmwf.int/display/CKB/C3S+ERA5%3A+Web+API+to+CDS+API
+https://cds.climate.copernicus.eu/api-how-to
 You will need to create an account with Copernicus Data Service to receive an api key.
 
 # Installing ecmwfapi module
