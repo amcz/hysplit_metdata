@@ -139,10 +139,10 @@ def createparamstr(paramlist):
     #Needed for 3D
     #param['TEMP'] = "130.128"
     param['TEMP'] = "temperature"
-    #param['UWND'] = "131.128"
-    param['UWND'] = "u_component_of_wind"
-    #param['VWND'] = "132.128"
-    param['VWND'] = "v_component_of_wind"
+    param['UWND'] = "131.128"
+    #param['UWND'] = "u_component_of_wind"
+    param['VWND'] = "132.128"
+    #param['VWND'] = "v_component_of_wind"
     #param['WWND'] = "135.128" 
     param['WWND'] = "vertical_velocity" 
     #param['RELH'] = "157.128"             #No relative humidity  on model levels in ERA5. It is available on pressure levels.
@@ -362,6 +362,8 @@ if levtype == "pl":
        levs = sorted(levs, reverse=True)
        levstr = str(levs[0])
        nlevels = len(levstr)
+    else:
+       levstr = ''
     for lv in levs[1:]:
        levstr += '/' + str(lv)  
     print('Retrieve levels ' , levstr)
@@ -506,9 +508,9 @@ if options.retrieve3d:
                     'day'           : daystr,
                     'time'          : timelist,
                     'grid'    : "0.25/0.25",
-                    'area'    : area
+                    'area'    : area,
                     'format'        : 'grib'
-                    }
+                    },
                      file3d + tstr)
 
 
@@ -550,8 +552,11 @@ if options.retrieve3d:
                 
 param2df = []
 
+##It looks like the 2df variables might be available in the analysis files from copernicus? 
 param2df = []
 param2da = ['T02M' , 'V10M' , 'U10M', 'TCLD', 'PRSS',  'DP2M', 'PBLH', 'CAPE', 'SHGT']
+param2df = ['TPP1', 'SHTF' , 'DSWF', 'LTHF', 'USTR']
+param2da.extend(param2df)
 ####retrieving 2d fields
 if options.retrieve2d:
     #param2da = ['T02M' , 'V10M' , 'U10M', 'TCLD', 'PRSS',  'DP2M', 'PBLH', 'CAPE', 'SHGT']
@@ -565,23 +570,34 @@ if options.retrieve2d:
         mid.write('-------------------\n')
     if options.run and stream == 'oper':
         f2list.append(file2d+tstr)
-        server.retrieve({
-                    'class'   : "ea",
-                    'expver'  : "1",
+        server.retrieve('reanalysis-era5-single-levels',
+                        {
+                         'product_type' : wtype,
+                         'variable' : paramstr,
+                         'year'     : yearstr,
+                         'month'    : monthstr,
+                         'day'      : daystr,
+                         'time'     : timelist,
+                         'area'     : area,
+                         'format'   : 'grib'
+                         },
+                          file2d + tstr)
+                    #'class'   : "ea",
+                    #'expver'  : "1",
                     #'number'  : "0/1/2/3/4/5/6/7/8/9",
-                    'dataset' : dataset,
+                    #'dataset' : dataset,
                     #'step'    : stepsz,
-                    'stream'  : stream,
-                    'levtype' : "sfc",
-                    'date'    :  datestr,
-                    'time'    :  wtime,
+                    #'stream'  : stream,
+                    #'levtype' : "sfc",
+                    #'date'    :  datestr,
+                    #'time'    :  wtime,
                     #'origin'  : "all",
-                    'type'    :  wtype,
-                    'param'   :  paramstr,
-                    'target'  : file2d + tstr,
-                    'grid'    : "0.3/0.3",
-                    'area'    : area
-                       })
+                    #'type'    :  wtype,
+                    #'param'   :  paramstr,
+                    #'target'  : file2d + tstr,
+                    #'grid'    : "0.3/0.3",
+                    #'area'    : area
+                    #   })
     if options.run and stream == 'enda':
         for emember in enlist:
             estr = '.e' + emember  
@@ -615,7 +631,7 @@ iii+=1
 iii=1 
 for ptime in ptimelist:
     if options.retrieve2d and get_precip:
-           ### "The short forecasts fun from 06 and 18 UTC, have hourly steps from 0 to 18 hours
+           ### "The short forecasts run from 06 and 18 UTC, have hourly steps from 0 to 18 hours
            ### here we cover the 24 hour time period by starting the retrieval from the day before.
            ### This is not going to match the time periods for the analysis variables.
            ### conversion program will handle extra time periods in the forecast file.
