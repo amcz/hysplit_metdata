@@ -57,6 +57,8 @@ def write_cfg(tparamlist, dparamlist, levs, cfgname = 'new_era52arl.cfg'):
     sname = {}
     sname['TPP1'] = ['tp','228','1.0']       #units of m. multiplier is 1.          
     sname['SHTF'] = ['sshf','146','0.00028'] #units J/m^2 (surface sensible heat flux) (divide by 3600 to get W/m^2)     
+                                                    
+
     sname['DSWF'] = ['ssrd','169','0.00028'] #same as sshf           
     sname['LTHF'] = ['slhf','147','0.00028'] #same as sshf            
     sname['USTR'] = ['zust','3', '1.0']      #units of m/s (multiplier should be 1)      
@@ -140,19 +142,13 @@ def createparamstr(paramlist):
     #param['TEMP'] = "130.128"
     param['TEMP'] = "temperature"
     param['UWND'] = "131.128"
-    #param['UWND'] = "u_component_of_wind"
     param['VWND'] = "132.128"
-    #param['VWND'] = "v_component_of_wind"
-    #param['WWND'] = "135.128" 
-    param['WWND'] = "vertical_velocity" 
-    #param['RELH'] = "157.128"             #No relative humidity  on model levels in ERA5. It is available on pressure levels.
-    param['RELH'] = "relative_humidity"    #No relative humidity  on model levels in ERA5. It is available on pressure levels.
-    #param['HGTS'] = "129.128"             #geopotential heights: this is also a 2D field.
-    param['HGTS'] = "geopotential"         #geopotential heights: this is also a 2D field.
+    param['WWND'] = "135.128" 
+    param['RELH'] = "157.128"             #No relative humidity  on model levels in ERA5. It is available on pressure levels.
+    param['HGTS'] = "129.128"             #geopotential heights: this is also a 2D field.
                                            #for the model levels this is only archived on level 1.  
     #Optional for 3D
-    #param['SPHU']= '133.128'               #specific humidity. redundant since have RELH
-    param['SPHU']= 'specific_humidity'      #specific humidity. redundant since have RELH
+    param['SPHU']= '133.128'               #specific humidity. redundant since have RELH
     param['XXXX']= 'fraction_of_cloud_cover' 
     param['XXXX']= 'divergence'              
 
@@ -181,10 +177,21 @@ def createparamstr(paramlist):
     sname['TPP1'] = 'tp'             
     param['SHTF'] = '146.128'              #Forecast: ERA5 surface sensible heat flux. sshf, 146, Jm^(-2)
     sname['SHTF'] = 'sshf'              
+    #param['SHTF']='231.128'                   #ERA5 also has Instantaneous surface sensible heat flux. W/m2
+    #sname['SHTF']='ishf'                
+    #param['SHTF']='33.235'                #ERA5 also has Mean surface sensible heat flux. W/m2
+    #sname['SHTF']='msshf'                
+
     param['DSWF'] = "169.128"              #Forecast: ERA5 surface solar radiation downward, ssrd  Jm^(-2)
     sname['DSWF'] = "ssrd"             
+    #param['DSWF'] = "169.128"              #Forecast: ERA5 surface solar radiation downward, ssrd  Jm^(-2)
+    #sname['DSWF'] = "ssrd"             
+
     param['LTHF'] = "147.128"              #Forecast: ERA5 surface latent heat flux, slhf, 147, Jm^(-2)
     sname['LTHF'] = "slhf"             
+    #param['LTHF'] = "34.235"              #Forecast: ERA5 Mean surface latent heat flux, mslhf,  Wm^(-2)
+    #sname['LTHF'] = "mslhf"             
+
     param['USTR'] = "3.228"                #Forecast: ERA5 friction velocity, short name = zust,  (m/s)
     sname['USTR'] = "zust"               
 #----------------------------------------------------------------------------------------------------------------------------
@@ -323,6 +330,7 @@ if stream not in ['oper', 'enda']:
    print("Warning: stream" + options.stream + " is not supported. Only oper and enda streams supported")
    sys.exit()
 if stream == 'enda':
+   wtype="ensemble_members" 
    print("retrieving ensemble")
    enlist = options.enlist.strip().split(":")
    check_enlist = list(map(str, list(range(0,10,1))))
@@ -333,6 +341,7 @@ if stream == 'enda':
           sys.exit() 
 else:
    enlist=[-99]
+   wtype="reanalysis" 
 ###"137 hybrid sigma/pressure (model) levels in the vertical with the top level at 0.01hPa. Atmospheric data are
 ###available on these levels and they are also interpolated to 37 pressure, 16 potential temperature and 1 potential vorticity level(s).
 
@@ -406,7 +415,7 @@ server=cdsapi.Client()
 ##wtype = "4v"   ##4D variational analysis is available as well as analysis.
 
 #wtype="an" 
-wtype="reanalysis" 
+#wtype="reanalysis" 
 
 if stream == 'oper':
 ##need to break each day into four time periods to keep 3d grib files at around 1.6 GB
@@ -427,6 +436,9 @@ elif stream == 'enda':
 
 #___________________This block for setting time and step for surface fields that are only 
 #                   available as forecast.
+##This block not needed with CDS because retrieval time is for valid date.
+##The api will calculate what forecast time and step are needed.
+
 ###In order to make the forecast field files have matching time periods
 ###use the following times and steps.
 ###start at 18  on the previous day with step of 6 through 12 to get hours 0 through 05.
@@ -437,12 +449,12 @@ elif stream == 'enda':
 ###NOTE - accumulated fields are 0 for step of 0. So cannot use step0.
 ##Always retrieve full day for the forecast fields.
 #if options.getfullday:
-if stream == 'oper':
-    ptimelist = ["18:00:00/06:00:00"]
-    pstep = ["/".join(map(str,list(range(1,13))))]
-    pstart=[tppt_datestr+ '/' + datestr]
+#if stream == 'oper':
+#    ptimelist = ["18:00:00/06:00:00"]
+#    pstep = ["/".join(map(str,list(range(1,13))))]
+#    pstart=[tppt_datestr+ '/' + datestr]
 
-elif stream == 'enda':  #ensemble output.
+#elif stream == 'enda':  #ensemble output.
     ##use steps 3,6,9, 12.
     ##time of 18 step 3 gives forecast at 21
     ##time of 18 step 6 gives forecast at 00
@@ -453,9 +465,9 @@ elif stream == 'enda':  #ensemble output.
     ##time of 06 step 9 gives forecast at 15
     ##time of 06 step 12 gives forecast at 18
 
-    ptimelist = ["18:00:00/06:00:00"]
-    pstep = ["/".join(map(str,list(range(3,15,3))))]
-    pstart=[tppt_datestr+ '/' + datestr]
+#    ptimelist = ["18:00:00/06:00:00"]
+#    pstep = ["/".join(map(str,list(range(3,15,3))))]
+#    pstart=[tppt_datestr+ '/' + datestr]
 
 
 #grid: 0.3/0.3: "For era5 data, the point interval on the native Gaussian grid is about 0.3 degrees. 
@@ -496,8 +508,8 @@ if options.retrieve3d:
         mid.write('type ' + wtype + '\n')
         mid.write('date ' + datestr + '\n')
         mid.write('-------------------\n')
-    if options.run and stream=='oper':
         f3list.append(file3d+ tstr)
+    if options.run and stream=='oper':
         server.retrieve('reanalysis-era5-pressure-levels',
                     {
                     'variable'      :  paramstr,
@@ -513,47 +525,29 @@ if options.retrieve3d:
                     },
                      file3d + tstr)
 
-
-#                    'class'   : "ea",
-#                    'expver'  : "1",
-#                    'dataset' : dataset,
-#                    'stream'  : stream,   #stays same for era5.
-#                    'levtype' :  levtype,
-#                    'levelist':  levs,
-#                    'date'    :  datestr,
-#                    'time'    :  wtime,
-#                    'origin'  : "all",
-#                    'target'  :  file3d  + tstr,
-#                    'grid'    : "0.3/0.3",
-#                    'area'    : area
-#                   }
-#                     "download.grib")
     if options.run and stream=='enda':
         for emember in enlist:
             estr = '.e' + emember  
             f3list.append(file3d+estr + tstr)
-            server.retrieve({
-                        'class'   : "ea",
-                        'expver'  : "1",
-                        'dataset' : dataset,
-                        'stream'  : stream,   #stays same for era5.
-                        'levtype' :  levtype,
-                        'levelist':  levs,
-                        'date'    :  datestr,
-                        'time'    :  wtime,
-                        'origin'  : "all",
-                        'type'    :  wtype,
-                        'param'   :  paramstr,
-                        'target'  :   file3d  + estr + tstr,
-                        'grid'    : "0.3/0.3",
-                        'area'    : area,
-                        'number'  : "0/1/2/3/4/5/6/7/8/9" 
-                       })
+            server.retrieve('reanalysis-era5-pressure-levels',
+                    {
+                    'variable'      :  paramstr,
+                    'pressure_level':  levs,
+                    'product_type'  :  wtype,
+                    'year'          : yearstr,
+                    'month'         : monthstr,
+                    'day'           : daystr,
+                    'time'          : timelist,
+                    'grid'    : "0.25/0.25",
+                    'area'    : area,
+                    'format'        : 'grib',
+                    'number'  : emember
+                    },
+                     file3d + estr + tstr)
                 
-param2df = []
 
-##It looks like the 2df variables might be available in the analysis files from copernicus? 
-param2df = []
+##The surface variables can be retrieved in the same file with CDS.
+##This was not the case with the ecmwf api.
 param2da = ['T02M' , 'V10M' , 'U10M', 'TCLD', 'PRSS',  'DP2M', 'PBLH', 'CAPE', 'SHGT']
 param2df = ['TPP1', 'SHTF' , 'DSWF', 'LTHF', 'USTR']
 param2da.extend(param2df)
@@ -568,8 +562,8 @@ if options.retrieve2d:
         mid.write('type ' + wtype + '\n')
         mid.write('date ' + datestr + '\n')
         mid.write('-------------------\n')
-    if options.run and stream == 'oper':
         f2list.append(file2d+tstr)
+    if options.run and stream == 'oper':
         server.retrieve('reanalysis-era5-single-levels',
                         {
                          'product_type' : wtype,
@@ -579,25 +573,10 @@ if options.retrieve2d:
                          'day'      : daystr,
                          'time'     : timelist,
                          'area'     : area,
-                         'format'   : 'grib'
+                         'format'   : 'grib',
+                         'grid'    : "0.25/0.25",
                          },
                           file2d + tstr)
-                    #'class'   : "ea",
-                    #'expver'  : "1",
-                    #'number'  : "0/1/2/3/4/5/6/7/8/9",
-                    #'dataset' : dataset,
-                    #'step'    : stepsz,
-                    #'stream'  : stream,
-                    #'levtype' : "sfc",
-                    #'date'    :  datestr,
-                    #'time'    :  wtime,
-                    #'origin'  : "all",
-                    #'type'    :  wtype,
-                    #'param'   :  paramstr,
-                    #'target'  : file2d + tstr,
-                    #'grid'    : "0.3/0.3",
-                    #'area'    : area
-                    #   })
     if options.run and stream == 'enda':
         for emember in enlist:
             estr = '.e' + emember  
@@ -628,69 +607,8 @@ if options.grib2arl:
    grib2arlscript(sname, shfiles, startdate, 'T'+str(iii)) 
 iii+=1
 
-iii=1 
-for ptime in ptimelist:
-    if options.retrieve2d and get_precip:
-           ### "The short forecasts run from 06 and 18 UTC, have hourly steps from 0 to 18 hours
-           ### here we cover the 24 hour time period by starting the retrieval from the day before.
-           ### This is not going to match the time periods for the analysis variables.
-           ### conversion program will handle extra time periods in the forecast file.
-           #precipstep = "/".join(map(str, range(0,12)))
-           #preciptime = "06:00:00/18:00:00"
-           #These surface fields are only available as forecast. 
-           with open(mfilename, 'a') as mid: 
-               mid.write('retrieving 2d forecast data \n')
-               mid.write(paramstr + '\n')
-               mid.write('time ' + ptime + '\n')
-               mid.write('step ' + pstep[iii-1] + '\n')
-               mid.write('type ' + 'fc' + '\n')
-               mid.write('date ' + tppt_datestr + '\n')
-           param2df = ['TPP1', 'SHTF' , 'DSWF', 'LTHF', 'USTR']
-           paramstr = createparamstr(param2df)
-           if options.run and stream == 'oper':
-               f2flist.append(filetppt+tstr)
-               server.retrieve({
-                               'class'   : "ea",
-                               'expver'  : "1",
-                               'dataset' : dataset,
-                                'stream'  : stream,
-                                'levtype' : "sfc",
-                                'date'    : pstart[iii-1],
-                                'time'    : ptime,
-                                'step'    : pstep[iii-1],
-                                #'origin'  : "all",
-                                'type'    : "fc",
-                                'param'   :  paramstr,
-                                'target'  : filetppt + tstr,
-                                'grid'    : "0.3/0.3",
-                                'area'    : area
-                                })
-           elif options.run and stream == 'enda':
-               for emember in enlist:
-                   estr = '.e' + emember  
-                   f2flist.append(filetppt+estr+tstr)
-                   server.retrieve({
-                               'class'   : "ea",
-                               #'number'  : emember,
-                                'number'  : "0/1/2/3/4/5/6/7/8/9",
-                               'expver'  : "1",
-                               'dataset' : dataset,
-                                'stream'  : stream,
-                                'levtype' : "sfc",
-                                'date'    : pstart[iii-1],
-                                'time'    : ptime,
-                                'step'    : pstep[iii-1],
-                                #'origin'  : "all",
-                                'type'    : "fc",
-                                'param'   :  paramstr,
-                                'target'  : filetppt + estr+ tstr,
-                                'grid'    : "0.3/0.3",
-                                'area'    : area
-                                })
-           shfiles = list(zip(f3list, f2list, f2flist)) 
-    iii+=1
 
-param2da.extend(param2df)
+#param2da.extend(param2df)
 #write a cfg file for the converter.
 write_cfg(param3d, param2da, levs)
 
@@ -700,7 +618,7 @@ write_cfg(param3d, param2da, levs)
 #type : an = analysis , fc = forecast
 #levtype: pl, ml, sfc, pt, pv  (pressure level, model level, mean sea level, potential temperature, potential vorticity)
 
-#An area and grid keyword are available but not used here.
+#An area and grid keyword are available 
 #Area : four values : North West South East
 #Grid : two values  : West-East   North-South increments
 #could use 'format' : 'netcdf' if want netcdf files.
