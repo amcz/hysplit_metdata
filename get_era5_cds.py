@@ -36,7 +36,7 @@ if the -g option is set will write a shell script to run the era52arl utility.
 9/10/2018 converted to python3 from python 2.7
 """
 
-def getvars(means=True, tm=1, levtype='pl'):
+def getvars(means=False, tm=1, levtype='pl'):
     instant=True
     if tm==1: amult = '0.00028'
     if tm==3: amult = '9.26e-5'
@@ -105,7 +105,7 @@ def getvars(means=True, tm=1, levtype='pl'):
     ### step for forecast are 1 through 18
     return sname
 
-def write_cfg(tparamlist, dparamlist, levs, tm=1, cfgname = 'new_era52arl.cfg', means=True):
+def write_cfg(tparamlist, dparamlist, levs, tm=1, cfgname = 'new_era52arl.cfg', means=False):
     """writes a .cfg file which is used by the fortran conversion program era52arl to
        read the grib files and convert them into a meteorological file that HYSPLTI can use.
     """
@@ -240,8 +240,17 @@ parser.add_option("-o", type="string" , dest="fname" , default='',
                   help = "Output filename stem. 3D.grib and 2D.grib will be added on. \
                   The default is to call it DATASET_YYYY.MMM where MMM is the three letter abbreviation for month. \
                   If a day range is specified then the default will be DATASET_YYYY.MMM.dd-dd.")
-parser.add_option("--3d", action="store_false" , dest="retrieve2d" , default=True,
-                  help = "If set then it will only retrieve 3d data.")
+parser.add_option("--3d", action="store_true" , dest="retrieve3d" , default=False,
+                  help = "If set then it retrieve 3d data. If none of the following are set:\
+                          --3d, --2d, --2da, --2df, then will act as though --3d and --2da are set.")
+parser.add_option("--2d", action="store_true" , dest="retrieve2d" , default=False, 
+                  help = "If set then it will retrieve 2d analyses data." \
+                  )
+parser.add_option("--2da", action="store_true" , dest="retrieve2da" , default=False, 
+                  help = "If set then it will retrieve all 2d data (forecast and analyses) in one file." \
+                  )
+parser.add_option("--2df", action="store_true" , dest="retrieve2df" , default=False, 
+                  help = "If set then it will retrieve 2d forecast data separately." )
 parser.add_option("-s", type="string" , dest="stream" , default='oper',
                   help = "default is oper which retrieves deterministic analyses. \
                           enda will retrieve ensemble.")
@@ -250,13 +259,10 @@ parser.add_option("--noprecip", action="store_false" , dest="get_precip" , defau
                           and a separate 2D file in a .2df.grib file which has forecast values. \
                           If the --noprecip field is set then the .2df.grib file will not be retrieved. \
                           ")
-parser.add_option("--2d", action="store_false" , dest="retrieve3d" , default=True, 
-                  help = "If set then it will only retrieve 2d data. The default is to retrieve both." \
-                  "If --2d and --3d are both set then no data will be retrieved.")
-parser.add_option("--2df", action="store_true" , dest="retrieve2df" , default=False, 
-                  help = "If set then it will retrieve 2d forecast data." )
 parser.add_option("--check", action="store_false" , dest="run" , default='true', 
                   help = "If set then simply echo command. Do not retrieve data" )
+parser.add_option("--extra", action="store_true" , dest="extra" , default='False', 
+                  help = "download UMOF, VMOF, TCLD, RGHS, DP2M" )
 parser.add_option("-g", action="store_true" , dest="grib2arl" , default= False, 
                   help = "If set then will append lines to a shell script for converting the files to arl format.") 
 parser.add_option("-l", type="int" , dest="toplevel" , default= 1, 
@@ -272,14 +278,13 @@ parser.add_option("--area", type="string" , dest="area" , default= "90/-180/-90/
                           Southern latitudes and western longiutdes are given negative numbers.") 
 
 
-means=True #retrieve mean fluxes instead of accumulated when possible.
-
+#If no retrieval options are set then retrieve 2d data and 2d data in one file.
 (options, args) = parser.parse_args()
+if not(options.retrieve3d) and not(options.retrieve2d) and not(options.retrieve2da) and not(options.retrieve2df):
+   options.retrieve3d=True
+   options.retrieve2da=True
 
-if options.retrieve2df:
-   options.retrieve3d=False
-   options.retrieve2d=False
-
+means=False #retrieve mean fluxes instead of accumulated when possible.
 
 get_precip = options.get_precip
 
@@ -473,7 +478,6 @@ for wtime in wtimelist:
         param3d = ['TEMP' , 'UWND', 'VWND' , 'WWND' , 'SPHU']
     f3list.append(file3d+ estr + tstr)
     if options.retrieve3d:
-
         paramstr = createparamstr(param3d, means=means)
         with open(mfilename, 'w') as mid: 
             mid.write('retrieving 3d data \n')
@@ -500,13 +504,17 @@ for wtime in wtimelist:
     ##The surface variables can be retrieved in the same file with CDS.
     ##This was not the case with the ecmwf api.
     ##For CDSAPI the year month day and time are the validityDate and validityTime.
-    param2da = ['T02M' , 'V10M' , 'U10M', 'TCLD', 'PRSS',  'DP2M', 'PBLH', 'CAPE', 'SHGT',
-                'UMOF', 'VMOF']
-    param2df = [precip, 'SHTF' , 'DSWF', 'LTHF', 'USTR','RGHS']
-    param2da.extend(param2df)
+    pextra = ['UMOF','VMOF','DP2M','TCLD']
+    pextraf = ['RGHS']
+    param2da = ['T02M', 'V10M', 'U10M', 'PRSS','PBLH', 'CAPE', 'SHGT']
+    param2df = [precip, 'SHTF' , 'DSWF', 'LTHF', 'USTR']
+    if options.extra:
+       param2da.extend(pextra)
+       param2df.extend(pextraf)
+    if options.retrieve2da: param2da.extend(param2df)
     ####retrieving 2d fields
     f2list.append(file2d+estr+tstr)
-    if options.retrieve2d:
+    if options.retrieve2d or options.retrieve2da:
         paramstr = createparamstr(param2da, means=means)
         with open(mfilename, 'a') as mid: 
             mid.write('retrieving 2d data \n')
@@ -557,6 +565,9 @@ for wtime in wtimelist:
 #write a cfg file for the converter.
 tm=1
 if stream=='enda': tm=3
+if options.retrieve2df and not options.retrieve2da:
+   param2da.extend(param2df)
+
 write_cfg(param3d, param2da, levs, tm=tm)
 
 #Notes on the server.retrieve function.
