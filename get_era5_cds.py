@@ -32,21 +32,16 @@ writes a file called get_era5_message.txt
 writes a file called new_era52arl.cfg
 
 if the -g option is set will write a shell script to run the era52arl utility.
-
-2/5/2018 -s enda will set stream=enda which will retrieve ERA5 ensemble.
-         -e will set the ensemble members to retrieve. Downloads each ensemble member to its own file.
             
 9/10/2018 converted to python3 from python 2.7
-
-Tried downloading all ensemble members in the same file to see if it would speed up download.
-This would require modification of the conversion program.
 """
 
-def getvars(means=True, tm=1):
+def getvars(means=True, tm=1, levtype='pl'):
+    instant=True
     if tm==1: amult = '0.00028'
     if tm==3: amult = '9.26e-5'
     sname={}
-    #3d fields
+    #3d fields. pressure levels. Instantaneous.
     #REQUIRED
     sname['TEMP'] = ['t', '130', '1.0', '130.128']    #units K
     sname['UWND'] = ["u", '131', '1.0', '131.128']    #units m/s
@@ -56,33 +51,49 @@ def getvars(means=True, tm=1):
     sname['HGTS'] = ["z", '129', '0.102','129.128']  #units m^2 / s^2. Divide by 9.8m/s^2 to get meters.
     #sname['SPHU']= "q"     #units kg / kg category 1, number 0. multiplier is 1   #specific humidity. redundant since have RELH
 
+    #3d fields. model levels
+    if levtype=='ml':
+       sname['SPHU'] = ['q', '133','1.0','133.128'] #units kg/kg
+       sname['ZWND'] = ['etadot', '77','1.0','133.128'] #eta-coordinate vertical velocity units s^-1
+
     #2D/surface analyses fields. 
     #REQUIRED
     sname['T02M'] = ['2t', '167', '1.0', '167.128']  #units K         #Analysis (needed) ERA5
     sname['U10M'] = ['10u','165', '1.0', '165.128']  #units m/s       #Analysis (needed) ERA5
     sname['V10M'] = ['10v','166', '1.0', '166.128']  #units m/s       #Analysis (needed) ERA5
     #OPTIONAL
-    sname['PRSS'] = ['sp' ,'134', '0.01','134.128'] #Units Pa        #multiplier of 0.01 for hPa.
+    sname['PRSS'] = ['sp' ,'134', '0.01','134.128'] #Instantaneous. Units Pa        #multiplier of 0.01 for hPa.
     sname['TCLD'] = ['tcc','164', '1.0', '164.128']  #total cloud cover 0-1  
     sname['DP2M'] = ['2d', '168', '1.0','168.128']   #2m dew point temperature  : Units K : level_indicator 1 , gds_grid_type 0
     sname['SHGT'] = ["z" , '129', '0.102','129.128'] #geopotential height  
-    sname['CAPE'] = ["cape" , '59', '1.0','59.128']  #convective potential energy : units  J/kg 
+    sname['CAPE'] = ["cape" , '59', '1.0','59.128']  #Instantaneous. convective potential energy : units  J/kg 
     sname['PBLH'] = ["blh" , '159', '1.0','159.128'] #boundary layer height : units m 
-    sname['XXXX'] = ['','244','1.0', "244.128"]            #(optional) Analysis: ERA5 forecast surface roughness shortname=fsr
+    #Turbulent surface stresses are instantaneous.
+    #These are same as Momentum fluxes.
+    #Can use these in place of USTR
+    sname['UMOF'] = ['iews','229', '1.0','229']  #units of N/m2  eastward turbulent surface stress     
+    sname['VMOF'] = ['inss','230', '1.0','230']  #units of N/m2  northward turbulent surface stress     
 
     #2D/surface forecast fields. 
     #OPTIONAL
     sname['TPP1'] = ['tp','228','1.0','228.128']       #Accumulated precipitation. units of m. multiplier is 1.        
     sname['TPP3'] = ['tp','228','1.0','228.128']       #Accumulated precipitation. units of m. multiplier is 1.        
-    if means:
-        sname['SHTF'] = ['msshf','146', '1.0', '33.235'] #units W/m^2 (surface sensible heat flux)      
-        sname['LTHF'] = ['mslhf','147', '1.0', '146']    #same as sshf            
-    else:  
-        sname['SHTF'] = ['sshf','146', amult,'146.128'] #units J/m^2 (surface sensible heat flux) (divide by 3600 to get W/m^2)     
-        sname['LTHF'] = ['slhf','147', amult,'147.128'] #same as sshf            
+    sname['RGHS'] = ['fsr','244','1.0', "244.128"]   #forecast surface roughnes : units m
+
+    #It looks like the means are not output every hour so do not use them.
+    #if means:
+    #    sname['SHTF'] = ['msshf','146', '1.0', '33.235'] #units W/m^2 (surface sensible heat flux)      
+    #    sname['LTHF'] = ['mslhf','34', '1.0', '34.235']  #latent heat flux. same as sshf            
+    sname['SHTF'] = ['sshf','146', amult,'146.128'] #units J/m^2 (surface sensible heat flux) (divide by 3600 to get W/m^2)     
+    sname['LTHF'] = ['slhf','147', amult,'147.128'] #same as sshf            
+    if instant:
+        #instaneous fluxes may be more desireable since use instanteous winds.
+        sname['SHTF'] = ['ishf','231','1.0','231.128'] #instantaneous SHTF. units W/m^2.
 
     sname['DSWF'] = ['ssrd','169', amult,'169.128']  #Accumulated. units J/m^2         
     sname['USTR'] = ['zust','3', '1.0','3.228']      #units of m/s (multiplier should be 1)      
+
+
     ###"The accumulations in the short forecasts (from 06 and 18 UTC) of ERA5 are treated differently 
     ###compared with those in ERA-INTERIM (where they
     ###were from the beginning of the forecast to the forecast step). 
@@ -229,7 +240,7 @@ parser.add_option("-o", type="string" , dest="fname" , default='',
                   help = "Output filename stem. 3D.grib and 2D.grib will be added on. \
                   The default is to call it DATASET_YYYY.MMM where MMM is the three letter abbreviation for month. \
                   If a day range is specified then the default will be DATASET_YYYY.MMM.dd-dd.")
-parser.add_option("--3d", action="store_false" , dest="retrieve2d" , default='true',
+parser.add_option("--3d", action="store_false" , dest="retrieve2d" , default=True,
                   help = "If set then it will only retrieve 3d data.")
 parser.add_option("-s", type="string" , dest="stream" , default='oper',
                   help = "default is oper which retrieves deterministic analyses. \
@@ -239,9 +250,11 @@ parser.add_option("--noprecip", action="store_false" , dest="get_precip" , defau
                           and a separate 2D file in a .2df.grib file which has forecast values. \
                           If the --noprecip field is set then the .2df.grib file will not be retrieved. \
                           ")
-parser.add_option("--2d", action="store_false" , dest="retrieve3d" , default='true', 
+parser.add_option("--2d", action="store_false" , dest="retrieve3d" , default=True, 
                   help = "If set then it will only retrieve 2d data. The default is to retrieve both." \
                   "If --2d and --3d are both set then no data will be retrieved.")
+parser.add_option("--2df", action="store_true" , dest="retrieve2df" , default=False, 
+                  help = "If set then it will retrieve 2d forecast data." )
 parser.add_option("--check", action="store_false" , dest="run" , default='true', 
                   help = "If set then simply echo command. Do not retrieve data" )
 parser.add_option("-g", action="store_true" , dest="grib2arl" , default= False, 
@@ -262,6 +275,11 @@ parser.add_option("--area", type="string" , dest="area" , default= "90/-180/-90/
 means=True #retrieve mean fluxes instead of accumulated when possible.
 
 (options, args) = parser.parse_args()
+
+if options.retrieve2df:
+   options.retrieve3d=False
+   options.retrieve2d=False
+
 
 get_precip = options.get_precip
 
@@ -482,8 +500,9 @@ for wtime in wtimelist:
     ##The surface variables can be retrieved in the same file with CDS.
     ##This was not the case with the ecmwf api.
     ##For CDSAPI the year month day and time are the validityDate and validityTime.
-    param2da = ['T02M' , 'V10M' , 'U10M', 'TCLD', 'PRSS',  'DP2M', 'PBLH', 'CAPE', 'SHGT']
-    param2df = [precip, 'SHTF' , 'DSWF', 'LTHF', 'USTR']
+    param2da = ['T02M' , 'V10M' , 'U10M', 'TCLD', 'PRSS',  'DP2M', 'PBLH', 'CAPE', 'SHGT',
+                'UMOF', 'VMOF']
+    param2df = [precip, 'SHTF' , 'DSWF', 'LTHF', 'USTR','RGHS']
     param2da.extend(param2df)
     ####retrieving 2d fields
     f2list.append(file2d+estr+tstr)
@@ -507,9 +526,25 @@ for wtime in wtimelist:
                          'time'     : timelist,
                          'area'     : area,
                          'format'   : 'grib',
-                         'grid'    : "0.25/0.25",
+                         'grid'    : "0.25/0.25"
                          },
-                          file2d + estr + tstr)
+                          file2d + estr + '.all.' + tstr)
+    if options.retrieve2df:
+        paramstr = createparamstr(param2df, means=means)
+        if options.run:
+            server.retrieve('reanalysis-era5-single-levels',
+                        {
+                         'product_type' : wtype,
+                         'variable' : paramstr,
+                         'year'     : yearstr,
+                         'month'    : monthstr,
+                         'day'      : daystr,
+                         'time'     : timelist,
+                         'area'     : area,
+                         'format'   : 'grib',
+                         'grid'    : "0.25/0.25"
+                         },
+                          filetppt + estr + tstr)
 
     shfiles = list(zip(f3list, f2list)) 
     if options.grib2arl:
