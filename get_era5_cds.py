@@ -52,9 +52,8 @@ def getvars(means=False, tm=1, levtype='pl'):
     #sname['SPHU']= "q"     #units kg / kg category 1, number 0. multiplier is 1   #specific humidity. redundant since have RELH
 
     #3d fields. model levels
-    if levtype=='ml':
-       sname['SPHU'] = ['q', '133','1.0','133.128'] #units kg/kg
-       sname['ZWND'] = ['etadot', '77','1.0','133.128'] #eta-coordinate vertical velocity units s^-1
+    sname['SPHU'] = ['q', '133','1.0','133.128'] #units kg/kg
+    sname['ZWND'] = ['etadot', '77','1.0','133.128'] #eta-coordinate vertical velocity units s^-1
 
     #2D/surface analyses fields. 
     #REQUIRED
@@ -260,7 +259,8 @@ parser.add_option("--noprecip", action="store_false" , dest="get_precip" , defau
                           If the --noprecip field is set then the .2df.grib file will not be retrieved. \
                           ")
 parser.add_option("--check", action="store_false" , dest="run" , default='true', 
-                  help = "If set then simply echo command. Do not retrieve data" )
+                  help = "If set then simply echo command. Do not retrieve\
+                          data. Will create the cfg file." )
 parser.add_option("--extra", action="store_true" , dest="extra" , default='False', 
                   help = "download UMOF, VMOF, TCLD, RGHS, DP2M" )
 parser.add_option("-g", action="store_true" , dest="grib2arl" , default= False, 
@@ -276,6 +276,8 @@ parser.add_option("--area", type="string" , dest="area" , default= "90/-180/-90/
                           North/West gives the upper left corner of the bounding box. \
                           South/East gives the lower right corner of the bounding box. \
                           Southern latitudes and western longiutdes are given negative numbers.") 
+parser.add_option("--grid", type="string" , dest="grid" , default= "0.25/0.25" )
+parser.add_option("-t", type="string" , dest="leveltype" , default= "pl" )
 
 
 #If no retrieval options are set then retrieve 2d data and 2d data in one file.
@@ -298,7 +300,7 @@ day = options.day
 #daystr = '%0*d' % (2, day)
 dataset = 'era5'
 area = options.area
-
+grid=options.grid
 startdate = datetime.datetime(year, month, day, 0)
 tpptstart = startdate - datetime.timedelta(hours=24)  #need to retrieve forecast variables from previous day.
 
@@ -330,8 +332,8 @@ else:
 ##model level fields are in grib2. All other fields (including pressure levels) are in grib1 format.
 #if options.leveltype == "pl":
 levtype = "pl"
-#elif options.leveltype == "ml":
-#    levtype = "ml"
+if options.leveltype == "ml":
+    levtype = "ml"
 #else:
 #    print "WARNING: leveltype not supported. Only pl (pressure levels) or ml (model levels) supported"
 #    sys.exit()
@@ -357,11 +359,11 @@ if levtype == "pl":
        levstr = ''
     for lv in levs[1:]:
        levstr += '/' + str(lv)  
-    print('Retrieve levels ' , levstr)
 else:
     ##level 40 is about 24.5 km. Level 137 is 10 m
     ##level 49 is about 20 km.
-    levstr = "/".join(map(str, list(range(49,137))))
+    levstr = "/".join(map(str, list(range(30,137))))
+    levs = list(range(30,137))
 ##########################################################################################
 
 
@@ -474,10 +476,14 @@ for wtime in wtimelist:
     ####retrieving 3d fields
     if levtype=='pl':
        param3d = ['TEMP' , 'UWND', 'VWND' , 'WWND' , 'RELH' , 'HGTS' ]
+       rstr = 'reanalysis-era5-pressure-levels'
     elif levtype=='ml':
-        param3d = ['TEMP' , 'UWND', 'VWND' , 'WWND' , 'SPHU']
+       param3d = ['TEMP' , 'UWND', 'VWND' , 'WWND' , 'SPHU']
+       rstr = 'reanalysis-era5-complete'
     f3list.append(file3d+ estr + tstr)
     if options.retrieve3d:
+        print( 'RETRIEVING 3d ' + levtype + ' '.join(param3d) )
+        print('Retrieve levels ' , levstr)
         paramstr = createparamstr(param3d, means=means)
         with open(mfilename, 'w') as mid: 
             mid.write('retrieving 3d data \n')
@@ -486,8 +492,8 @@ for wtime in wtimelist:
             mid.write('type ' + wtype + '\n')
             mid.write('date ' + datestr + '\n')
             mid.write('-------------------\n')
-        if options.run:
-            server.retrieve('reanalysis-era5-pressure-levels',
+        if options.run and levtype=='pl':
+            server.retrieve(rstr,
                     {
                     'variable'      :  paramstr,
                     'pressure_level':  levs,
@@ -496,11 +502,29 @@ for wtime in wtimelist:
                     'month'         : monthstr,
                     'day'           : daystr,
                     'time'          : timelist,
-                    'grid'    : "0.25/0.25",
+                    'grid'    : grid,
                     'area'    : area,
                     'format'        : 'grib'
                     },
                      file3d + estr + tstr)
+        if options.run and levtype=='ml':
+            server.retrieve(rstr,
+                    {
+                    'class'    : 'ea',
+                    'expver'   : 'l',
+                    'stream'   : 'oper',
+                    'type'     : 'an',
+                    'param'    : paramstr,
+                    'origin'   : "all",
+                    'levelist' :  levs,
+                    'date'     : datestr,
+                    'time'     : wtime,
+                    'grid'     : grid,
+                    'area'     : area,
+                    'format'   : 'grib'
+                    },
+                     file3d + estr + tstr)
+                 
     ##The surface variables can be retrieved in the same file with CDS.
     ##This was not the case with the ecmwf api.
     ##For CDSAPI the year month day and time are the validityDate and validityTime.
@@ -515,6 +539,7 @@ for wtime in wtimelist:
     ####retrieving 2d fields
     f2list.append(file2d+estr+tstr)
     if options.retrieve2d or options.retrieve2da:
+        print( 'RETRIEVING 2d ' + ' '.join(param2da) )
         paramstr = createparamstr(param2da, means=means)
         with open(mfilename, 'a') as mid: 
             mid.write('retrieving 2d data \n')
@@ -534,7 +559,7 @@ for wtime in wtimelist:
                          'time'     : timelist,
                          'area'     : area,
                          'format'   : 'grib',
-                         'grid'    : "0.25/0.25"
+                         'grid'    :grid 
                          },
                           file2d + estr + '.all.' + tstr)
     if options.retrieve2df:
@@ -550,7 +575,7 @@ for wtime in wtimelist:
                          'time'     : timelist,
                          'area'     : area,
                          'format'   : 'grib',
-                         'grid'    : "0.25/0.25"
+                         'grid'    : grid
                          },
                           filetppt + estr + tstr)
 

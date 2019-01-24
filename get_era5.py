@@ -42,6 +42,74 @@ This would require modification of the conversion program.
 """
 
 
+def getvars(means=False, tm=1, levtype='pl'):
+    instant=True
+    if tm==1: amult = '0.00028'
+    if tm==3: amult = '9.26e-5'
+    sname={}
+    #3d fields. pressure levels. Instantaneous.
+    #REQUIRED
+    sname['TEMP'] = ['t', '130', '1.0', '130.128']    #units K
+    sname['UWND'] = ["u", '131', '1.0', '131.128']    #units m/s
+    sname['VWND'] = ["v", '132', '1.0', '132.128']    #units m/s
+    sname['WWND'] = ["w", '135', '0.01','135.128']   #units Pa/s. convert to hPa/s for HYSPLIT
+    sname['RELH'] = ["r", '157', '1.0', '157.128']    #units %
+    #GEOPOTENTIAL is only archived on level 1 for levtype='ml'
+    sname['HGTS'] = ["z", '129', '0.102','129.128']  #units m^2 / s^2. Divide by 9.8m/s^2 to get meters.
+    #sname['SPHU']= "q"     #units kg / kg category 1, number 0. multiplier is 1   #specific humidity. redundant since have RELH
+    
+    #3d fields. model levels
+    sname['SPHU'] = ['q', '133','1.0','133.128'] #units kg/kg
+    sname['ZWND'] = ['etadot', '77','1.0','133.128'] #eta-coordinate vertical velocity units s^-1
+
+    #2D/surface analyses fields. 
+    #REQUIRED
+    sname['T02M'] = ['2t', '167', '1.0', '167.128']  #units K         #Analysis (needed) ERA5
+    sname['U10M'] = ['10u','165', '1.0', '165.128']  #units m/s       #Analysis (needed) ERA5
+    sname['V10M'] = ['10v','166', '1.0', '166.128']  #units m/s       #Analysis (needed) ERA5
+    #OPTIONAL
+    sname['PRSS'] = ['sp' ,'134', '0.01','134.128'] #Instantaneous. Units Pa        #multiplier of 0.01 for hPa.
+    sname['TCLD'] = ['tcc','164', '1.0', '164.128']  #total cloud cover 0-1  
+    sname['DP2M'] = ['2d', '168', '1.0','168.128']   #2m dew point temperature  : Units K : level_indicator 1 , gds_grid_type 0
+    sname['SHGT'] = ["z" , '129', '0.102','129.128'] #geopotential height  
+    sname['CAPE'] = ["cape" , '59', '1.0','59.128']  #Instantaneous. convective potential energy : units  J/kg 
+    sname['PBLH'] = ["blh" , '159', '1.0','159.128'] #boundary layer height : units m 
+    #Turbulent surface stresses are instantaneous.
+    #These are same as Momentum fluxes.
+    #Can use these in place of USTR
+    sname['UMOF'] = ['iews','229', '1.0','229']  #units of N/m2  eastward turbulent surface stress     
+    sname['VMOF'] = ['inss','230', '1.0','230']  #units of N/m2  northward turbulent surface stress     
+
+    #2D/surface forecast fields. 
+    #OPTIONAL
+    sname['TPP1'] = ['tp','228','1.0','228.128']       #Accumulated precipitation. units of m. multiplier is 1.        
+    sname['TPP3'] = ['tp','228','1.0','228.128']       #Accumulated precipitation. units of m. multiplier is 1.        
+    sname['RGHS'] = ['fsr','244','1.0', "244.128"]   #forecast surface roughnes : units m
+
+    #It looks like the means are not output every hour so do not use them.
+    #if means:
+    #    sname['SHTF'] = ['msshf','146', '1.0', '33.235'] #units W/m^2 (surface sensible heat flux)      
+    #    sname['LTHF'] = ['mslhf','34', '1.0', '34.235']  #latent heat flux. same as sshf            
+    sname['SHTF'] = ['sshf','146', amult,'146.128'] #units J/m^2 (surface sensible heat flux) (divide by 3600 to get W/m^2)     
+    sname['LTHF'] = ['slhf','147', amult,'147.128'] #same as sshf            
+    if instant:
+        #instaneous fluxes may be more desireable since use instanteous winds.
+        sname['SHTF'] = ['ishf','231','1.0','231.128'] #instantaneous SHTF. units W/m^2.
+
+    sname['DSWF'] = ['ssrd','169', amult,'169.128']  #Accumulated. units J/m^2         
+    sname['USTR'] = ['zust','3', '1.0','3.228']      #units of m/s (multiplier should be 1)      
+    ###"The accumulations in the short forecasts (from 06 and 18 UTC) of ERA5 are treated differently 
+    ###compared with those in ERA-INTERIM (where they
+    ###were from the beginning of the forecast to the forecast step). 
+    ###In the short forecasts of ERA5, the accumulations are since the previous post processing (archiving)
+    ###so for: HRES - accumulations are in the hour ending at the forecast step.
+    ###mean rate parameters in ERA5 are similar to accumulations except that the quantities 
+    ###are averaged instead of accumulated over the period so the units
+    ### include "per second"
+    ### step for forecast are 1 through 18
+    return sname
+
+
 def write_cfg(tparamlist, dparamlist, levs, cfgname = 'new_era52arl.cfg'):
     """writes a .cfg file which is used by the fortran conversion program era52arl to
        read the grib files and convert them into a meteorological file that HYSPLTI can use.
@@ -52,33 +120,9 @@ def write_cfg(tparamlist, dparamlist, levs, cfgname = 'new_era52arl.cfg'):
     #the short name and indicatorOfParameter can be found by doing a grib_dump
     #or tables in the ERA5 documentation - 
     #https://software.ecmwf.int/wiki/display/CKB/ERA5+data+documentation#ERA5datadocumentaion-Paramterlistings
+
+    sname = getvars()
     print(dparamlist)
-    sname = {}
-    sname['TPP1'] = ['tp','228','1.0']       #units of m. multiplier is 1.          
-    sname['SHTF'] = ['sshf','146','0.00028'] #units J/m^2 (surface sensible heat flux) (divide by 3600 to get W/m^2)     
-    sname['DSWF'] = ['ssrd','169','0.00028'] #same as sshf           
-    sname['LTHF'] = ['slhf','147','0.00028'] #same as sshf            
-    sname['USTR'] = ['zust','3', '1.0']      #units of m/s (multiplier should be 1)      
-
-    sname['TEMP'] = ['t', '130', '1.0']    #units K
-    sname['UWND'] = ["u", '131', '1.0']    #units m/s
-    sname['VWND'] = ["v", '132', '1.0']    #units m/s
-    sname['WWND'] = ["w", '135', '0.01']   #units Pa/s. convert to hPa/s for HYSPLIT
-    sname['RELH'] = ["r", '157', '1.0']    #units %
-    sname['HGTS'] = ["z", '129', '0.102']  #units m^2 / s^2. Divide by 9.8m/s^2 to get meters.
-    #sname['SPHU']= "q"     #units kg / kg category 1, number 0. multiplier is 1   #specific humidity. redundant since have RELH
-
-    sname['T02M'] = ['2t', '167', '1.0']  #units K         #Analysis (needed) ERA5
-    sname['U10M'] = ['10u','165', '1.0']  #units m/s       #Analysis (needed) ERA5
-    sname['V10M'] = ['10v','166', '1.0']  #units m/s       #Analysis (needed) ERA5
-    sname['PRSS'] = ['sp' ,'134', '0.01'] #Units Pa        #multiplier of 0.01 for hPa.
-    sname['TCLD'] = ['tcc','164', '1.0']  #total cloud cover 0-1  
-    sname['DP2M'] = ['2d', '168' , '1.0']   #2m dew point temperature  : Units K : level_indicator 1 , gds_grid_type 0
-
-    sname['SHGT'] = ["z" , '129', '0.102']#units m^2 / s^2  
-    sname['CAPE'] = ["cape", '59','1.0']  #units J/kg #multiplier of 1.
-    sname['PBLH'] = ["blh", '159', '1.0'] #units m        
-
 
     numatm = str(len(tparamlist))
     atmgrb = ''
@@ -126,64 +170,20 @@ def write_cfg(tparamlist, dparamlist, levs, cfgname = 'new_era52arl.cfg'):
          fid.write('/\n')
 
 
-def createparamstr(paramlist):
+def createparamstr(paramlist, levtype='pl'):
     """contains a dictionary of codes for the parameters to be retrieved. Input a list of string descriptors of the
        parameters. Output is a string of codes which can be used in the server.retrieve() function.
        4 letter codes used for dictionary keys correspond to codes used by fortran ecmwf2arl converter. 
        The sname dictionary has the same keys as the param dictionary but the values are the grib short_name."""
-    param = {}
-    sname = {}
-    #Needed for 3D
-    param['TEMP'] = "130.128"
-    param['UWND'] = "131.128"
-    param['VWND'] = "132.128"
-    param['WWND'] = "135.128" 
-    param['RELH'] = "157.128"              #No relative humidity  on model levels in ERA5. It is available on pressure levels.
-    param['HGTS'] = "129.128"              #geopotential heights: this is also a 2D field.
-                                           #for the model levels this is only archived on level 1.  
-    #Optional for 3D
-    param['SPHU']= '133.128'               #specific humidity. redundant since have RELH
-
-    #2D analysis fields
-    param['T02M'] = '167.128'              #Analysis (needed) ERA5
-    param['U10M'] = '165.128'              #Analysis (needed) ERA5
-    param['V10M'] = '166.128'              #Analysis (needed) ERA5
-    param['DP2M'] = "168.128"              #(optional) Analysis: ERA5  2m dew point temperature  : Units K : level_indicator 1 , gds_grid_type 0
-    param['PRSS'] = "134.128"              #(optional) Analysis: ERA5  pressure at surface. This is only archived once a day at 00Z.
-    param['SHGT'] = "129.128"              #geopotential heights (????) ERA5 - these are in the 2d and model levels as well.
-    param['TCLD'] = "164.128"              #(optional) Analysis: ERA5 total cloud cover
-    param['CAPE'] = "59.128"               #(optional) Analysis: ERA5 convective available potential energy
-    param['PBLH'] = "159.128"              #(optional) Analysis: ERA5 boundarly layer height
-    param['XXXX'] = "244.128"              #(optional) Analysis: ERA5 forecast surface roughness shortname=fsr
-
-
-    #2D forecast fields. These are all optional.
-    ###"The accumulations in the short forecasts (from 06 and 18 UTC) of ERA5 are treated differently compared with those in ERA-INTERIM (where they
-    ###were from the beginning of the forecast to the forecast step). In the short forecasts of ERA5, the accumulations are since the previous post processing (archiving)
-    ### so for: HRES - accumulations are in the hour ending at the forecast step.
-    ### mean rate parameters in ERA5 are similar to accumulations except that the quantities are averaged instead of accumulated over the period so the units
-    ### includ "per second"
-    ### step for forecast are 1 through 18
-    
-    param['TPP1'] = '228.128'              #Forecast: ERA5  short name tp, number 228, units (m)
-    sname['TPP1'] = 'tp'             
-    param['SHTF'] = '146.128'              #Forecast: ERA5 surface sensible heat flux. sshf, 146, Jm^(-2)
-    sname['SHTF'] = 'sshf'              
-    param['DSWF'] = "169.128"              #Forecast: ERA5 surface solar radiation downward, ssrd  Jm^(-2)
-    sname['DSWF'] = "ssrd"             
-    param['LTHF'] = "147.128"              #Forecast: ERA5 surface latent heat flux, slhf, 147, Jm^(-2)
-    sname['LTHF'] = "slhf"             
-    param['USTR'] = "3.228"                #Forecast: ERA5 friction velocity, short name = zust,  (m/s)
-    sname['USTR'] = "zust"               
-#----------------------------------------------------------------------------------------------------------------------------
+    param = getvars(means=False, levtype=levtype)
     paramstr = ''
     i=0
     for key in paramlist:
         if key in list(param.keys()):
             if i == 0:
-               paramstr += param[key] 
+               paramstr += param[key][3]
             else:
-               paramstr += '/' + param[key] 
+               paramstr += '/' + param[key][3] 
             i+=1
         else:
             print("No code for " , key , " available.") 
@@ -268,14 +268,18 @@ parser.add_option("-g", action="store_true" , dest="grib2arl" , default= False,
 parser.add_option("-l", type="int" , dest="toplevel" , default= 1, 
                   help = "Set top pressure level to be retrieved. Default is to retrieve all levels. ")
 #currently will only retrieve pressure levels. no converter available for model levels yet.
-#parser.add_option("-t", type="string" , dest="leveltype" , default= "pl", 
-#                  help = "default is pressure levels (pl) which will retrieve grib1 file \
-#                          Can also choose model levels (ml). There are 137 model levels. This will retrieve grib2 file.") 
+parser.add_option("-t", type="string" , dest="leveltype" , default= "pl", 
+                  help = "default is pressure levels (pl) which will retrieve grib1 file \
+                          Can also choose model levels (ml). There are 137 model levels. This will retrieve grib2 file.") 
 parser.add_option("--area", type="string" , dest="area" , default= "90/-180/-90/180", 
                   help = "choose the area to extract. Format is North/West/South/East \
                           North/West gives the upper left corner of the bounding box. \
                           South/East gives the lower right corner of the bounding box. \
                           Southern latitudes and western longiutdes are given negative numbers.") 
+parser.add_option("--grid", type="string" , dest="grid" , default= "0.3/0.3", 
+                  help = "choose grid resolution. Default is 0.3/0.3 and should\
+                          be no smaller")
+
 
 
 
@@ -294,6 +298,8 @@ day = options.day
 #daystr = '%0*d' % (2, day)
 dataset = 'era5'
 area = options.area
+
+grid=options.grid
 
 startdate = datetime.datetime(year, month, day, 0)
 tpptstart = startdate - datetime.timedelta(hours=24)  #need to retrieve forecast variables from previous day.
@@ -322,8 +328,8 @@ else:
 ##model level fields are in grib2. All other fields (including pressure levels) are in grib1 format.
 #if options.leveltype == "pl":
 levtype = "pl"
-#elif options.leveltype == "ml":
-#    levtype = "ml"
+if options.leveltype == "ml":
+    levtype = "ml"
 #else:
 #    print "WARNING: leveltype not supported. Only pl (pressure levels) or ml (model levels) supported"
 #    sys.exit()
@@ -468,7 +474,7 @@ if options.retrieve3d:
     #    param3d = ['TEMP' , 'UWND', 'VWND' , 'WWND' , 'RELH' , 'HGTS' ]
     #elif levtype=='ml':
     #    param3d = ['TEMP' , 'UWND', 'VWND' , 'WWND' , 'SPHU']
-    paramstr = createparamstr(param3d)
+    paramstr = createparamstr(param3d, levtype=levtype)
     with open(mfilename, 'w') as mid: 
         mid.write('retrieving 3d data \n')
         mid.write(paramstr + '\n')
@@ -491,7 +497,7 @@ if options.retrieve3d:
                     'type'    :  wtype,
                     'param'   :  paramstr,
                     'target'  :  file3d  + tstr,
-                    'grid'    : "0.3/0.3",
+                    'grid'    : grid,
                     'area'    : area
                    })
     if options.run and stream=='enda':
@@ -511,7 +517,7 @@ if options.retrieve3d:
                         'type'    :  wtype,
                         'param'   :  paramstr,
                         'target'  :   file3d  + estr + tstr,
-                        'grid'    : "0.3/0.3",
+                        'grid'    : grid,
                         'area'    : area,
                         'number'  : "0/1/2/3/4/5/6/7/8/9" 
                        })
@@ -519,7 +525,8 @@ if options.retrieve3d:
 param2df = []
 
 param2df = []
-param2da = ['T02M' , 'V10M' , 'U10M', 'TCLD', 'PRSS',  'DP2M', 'PBLH', 'CAPE', 'SHGT']
+param2da = ['T02M' , 'V10M' , 'U10M', 'TCLD', 'PRSS', 'PBLH', 'CAPE',\
+            'SHGT','RGHS','UMOF','VMOF']
 ####retrieving 2d fields
 if options.retrieve2d:
     #param2da = ['T02M' , 'V10M' , 'U10M', 'TCLD', 'PRSS',  'DP2M', 'PBLH', 'CAPE', 'SHGT']
@@ -547,7 +554,7 @@ if options.retrieve2d:
                     'type'    :  wtype,
                     'param'   :  paramstr,
                     'target'  : file2d + tstr,
-                    'grid'    : "0.3/0.3",
+                    'grid'    : grid,
                     'area'    : area
                        })
     if options.run and stream == 'enda':
@@ -569,7 +576,7 @@ if options.retrieve2d:
                         'type'    :  wtype,
                         'param'   :  paramstr,
                         'target'  : file2d + estr + tstr,
-                        'grid'    : "0.3/0.3",
+                        'grid'    : grid,
                         'area'    : area
                            })
 
@@ -614,7 +621,7 @@ for ptime in ptimelist:
                                 'type'    : "fc",
                                 'param'   :  paramstr,
                                 'target'  : filetppt + tstr,
-                                'grid'    : "0.3/0.3",
+                                'grid'    : grid,
                                 'area'    : area
                                 })
            elif options.run and stream == 'enda':
@@ -636,7 +643,7 @@ for ptime in ptimelist:
                                 'type'    : "fc",
                                 'param'   :  paramstr,
                                 'target'  : filetppt + estr+ tstr,
-                                'grid'    : "0.3/0.3",
+                                'grid'    : grid,
                                 'area'    : area
                                 })
            shfiles = list(zip(f3list, f2list, f2flist)) 
