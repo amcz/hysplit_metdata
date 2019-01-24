@@ -43,17 +43,21 @@ def getvars(means=False, tm=1, levtype='pl'):
     sname={}
     #3d fields. pressure levels. Instantaneous.
     #REQUIRED
-    sname['TEMP'] = ['t', '130', '1.0', '130.128']    #units K
-    sname['UWND'] = ["u", '131', '1.0', '131.128']    #units m/s
-    sname['VWND'] = ["v", '132', '1.0', '132.128']    #units m/s
-    sname['WWND'] = ["w", '135', '0.01','135.128']   #units Pa/s. convert to hPa/s for HYSPLIT
+    ##Last two numbers in list are (parameterCategory and parameterNumber)
+    ##In the grib2 file for the model levels, these are used to identify the
+    ##variable.
+    ##For the pressure levels the indicatorOfParameter (second in the list) is used.
+    sname['TEMP'] = ['t', '130', '1.0', '130.128', '0','0']    #units K
+    sname['UWND'] = ["u", '131', '1.0', '131.128', '2','2']    #units m/s
+    sname['VWND'] = ["v", '132', '1.0', '132.128', '2','3']    #units m/s
+    sname['WWND'] = ["w", '135', '0.01','135.128', '2','8']   #units Pa/s. convert to hPa/s for HYSPLIT
     sname['RELH'] = ["r", '157', '1.0', '157.128']    #units %
     sname['HGTS'] = ["z", '129', '0.102','129.128']  #units m^2 / s^2. Divide by 9.8m/s^2 to get meters.
     #sname['SPHU']= "q"     #units kg / kg category 1, number 0. multiplier is 1   #specific humidity. redundant since have RELH
 
     #3d fields. model levels
-    sname['SPHU'] = ['q', '133','1.0','133.128'] #units kg/kg
-    sname['ZWND'] = ['etadot', '77','1.0','133.128'] #eta-coordinate vertical velocity units s^-1
+    sname['SPHU'] = ['q', '133','1.0','133.128', '-1', '-1'] #units kg/kg
+    sname['ZWND'] = ['etadot', '77','1.0','133.128', '-1', '-1'] #eta-coordinate vertical velocity units s^-1
 
     #2D/surface analyses fields. 
     #REQUIRED
@@ -104,7 +108,7 @@ def getvars(means=False, tm=1, levtype='pl'):
     ### step for forecast are 1 through 18
     return sname
 
-def write_cfg(tparamlist, dparamlist, levs, tm=1, cfgname = 'new_era52arl.cfg', means=False):
+def write_cfg(tparamlist, dparamlist, levs, tm=1, levtype='pl', cfgname = 'new_era52arl.cfg', means=False):
     """writes a .cfg file which is used by the fortran conversion program era52arl to
        read the grib files and convert them into a meteorological file that HYSPLTI can use.
     """
@@ -115,17 +119,25 @@ def write_cfg(tparamlist, dparamlist, levs, tm=1, cfgname = 'new_era52arl.cfg', 
     #or tables in the ERA5 documentation - 
     #https://software.ecmwf.int/wiki/display/CKB/ERA5+data+documentation#ERA5datadocumentaion-Paramterlistings
     print(dparamlist)
+    if levtype=='pl':
+       aaa=1
+       bbb=1
+    elif levtype=='ml':
+       aaa=4
+       bbb=5
 
     sname=getvars(means=means, tm=tm)
 
     numatm = str(len(tparamlist))
     atmgrb = ''
     atmcat = ''
+    atmnum = ''
     atmcnv = ''
     atmarl = ''
     for atm in tparamlist:
         atmgrb += "'" + sname[atm][0] + "', " 
-        atmcat +=  sname[atm][1] + ", " 
+        atmcat +=  sname[atm][aaa] + ", " 
+        atmnum +=  sname[atm][bbb] + ", " 
         atmcnv +=  sname[atm][2] + ", " 
         atmarl += "'" + atm + "', "
 
@@ -149,7 +161,7 @@ def write_cfg(tparamlist, dparamlist, levs, tm=1, cfgname = 'new_era52arl.cfg', 
          fid.write('numatm = ' + numatm +  ',\n') 
          fid.write('atmgrb = ' + atmgrb[:-2] + '\n')
          fid.write('atmcat = '  + atmcat[:-2] + '\n')
-         fid.write('atmnum = ' + atmcat[:-2] + '\n')
+         fid.write('atmnum = ' + atmnum[:-2] + '\n')
          fid.write('atmcnv = ' + atmcnv[:-2] + '\n')
          fid.write('atmarl = ' + atmarl[:-2] + '\n')
 
@@ -561,7 +573,7 @@ for wtime in wtimelist:
                          'format'   : 'grib',
                          'grid'    :grid 
                          },
-                          file2d + estr + '.all.' + tstr)
+                          file2d + estr + '.all' + tstr)
     if options.retrieve2df:
         paramstr = createparamstr(param2df, means=means)
         if options.run:
@@ -593,7 +605,7 @@ if stream=='enda': tm=3
 if options.retrieve2df and not options.retrieve2da:
    param2da.extend(param2df)
 
-write_cfg(param3d, param2da, levs, tm=tm)
+write_cfg(param3d, param2da, levs, tm=tm, levtype=levtype)
 
 #Notes on the server.retrieve function.
 #Seperate lists with a /
