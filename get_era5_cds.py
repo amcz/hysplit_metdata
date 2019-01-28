@@ -52,49 +52,59 @@ def getvars(means=False, tm=1, levtype='pl'):
     sname['VWND'] = ["v", '132', '1.0', '132.128', '2','3']    #units m/s
     sname['WWND'] = ["w", '135', '0.01','135.128', '2','8']   #units Pa/s. convert to hPa/s for HYSPLIT
     sname['RELH'] = ["r", '157', '1.0', '157.128']    #units %
-    sname['HGTS'] = ["z", '129', '0.102','129.128']  #units m^2 / s^2. Divide by 9.8m/s^2 to get meters.
+    sname['HGTS'] = ["z", '129', '0.102','129.128','-1','-1']  #units m^2 / s^2. Divide by 9.8m/s^2 to get meters.
     #sname['SPHU']= "q"     #units kg / kg category 1, number 0. multiplier is 1   #specific humidity. redundant since have RELH
 
     #3d fields. model levels
     sname['SPHU'] = ['q', '133','1.0','133.128', '-1', '-1'] #units kg/kg
     sname['ZWND'] = ['etadot', '77','1.0','133.128', '-1', '-1'] #eta-coordinate vertical velocity units s^-1
+    sname['LNSP'] = ['lnsp', '152','1.0','152.128', '-1', '-1'] #log pressure
 
     #2D/surface analyses fields. 
     #REQUIRED
-    sname['T02M'] = ['2t', '167', '1.0', '167.128']  #units K         #Analysis (needed) ERA5
-    sname['U10M'] = ['10u','165', '1.0', '165.128']  #units m/s       #Analysis (needed) ERA5
-    sname['V10M'] = ['10v','166', '1.0', '166.128']  #units m/s       #Analysis (needed) ERA5
+    sname['T02M'] = ['2t', '167', '1.0', '167.128','2m_temperature']  #units K         #Analysis (needed) ERA5
+    sname['U10M'] = ['10u','165', '1.0', '165.128','10m_u_component_of_wind']  #units m/s       #Analysis (needed) ERA5
+    sname['V10M'] = ['10v','166', '1.0', '166.128','10m_v_component_of_wind']  #units m/s       #Analysis (needed) ERA5
     #OPTIONAL
-    sname['PRSS'] = ['sp' ,'134', '0.01','134.128'] #Instantaneous. Units Pa        #multiplier of 0.01 for hPa.
-    sname['TCLD'] = ['tcc','164', '1.0', '164.128']  #total cloud cover 0-1  
-    sname['DP2M'] = ['2d', '168', '1.0','168.128']   #2m dew point temperature  : Units K : level_indicator 1 , gds_grid_type 0
-    sname['SHGT'] = ["z" , '129', '0.102','129.128'] #geopotential height  
-    sname['CAPE'] = ["cape" , '59', '1.0','59.128']  #Instantaneous. convective potential energy : units  J/kg 
-    sname['PBLH'] = ["blh" , '159', '1.0','159.128'] #boundary layer height : units m 
+    sname['PRSS'] = ['sp' ,'134', '0.01','134.128', 'surface_pressure'] #Instantaneous. Units Pa        #multiplier of 0.01 for hPa.
+    sname['TCLD'] = ['tcc','164', '1.0', '164.128','total_cloud_cover']  #total cloud cover 0-1  
+ 
+    #2m dew point temperature  : Units K : level_indicator 1 , gds_grid_type 0
+    sname['DP2M'] = ['2d', '168', '1.0','168.128','2m_dewpoint_temperature']   
+    sname['SHGT'] = ["z" , '129', '0.102','129.128','geopotential'] #geopotential height  
+    sname['CAPE'] = ["cape" , '59', '1.0','59.128',  #Instantaneous. convective potential energy : units  J/kg 
+                     'convective_available_potential_energy']
+    sname['PBLH'] = ["blh" , '159', '1.0','159.128','boundary_layer_height'] #boundary layer height : units m 
     #Turbulent surface stresses are instantaneous.
     #These are same as Momentum fluxes.
     #Can use these in place of USTR
-    sname['UMOF'] = ['iews','229', '1.0','229']  #units of N/m2  eastward turbulent surface stress     
-    sname['VMOF'] = ['inss','230', '1.0','230']  #units of N/m2  northward turbulent surface stress     
+    sname['UMOF'] = ['iews','229', '1.0','229',   #units of N/m2  eastward turbulent surface stress     
+                     'instantaneous_eastward_turbulent_surface_stress']
+    sname['VMOF'] = ['inss','230', '1.0','230',  #units of N/m2  northward turbulent surface stress     
+                     'instantaneous_northward_turbulent_surface_stress']
 
+    sname['XXXX'] = ['boundary_layer_dissipation']
     #2D/surface forecast fields. 
     #OPTIONAL
-    sname['TPP1'] = ['tp','228','1.0','228.128']       #Accumulated precipitation. units of m. multiplier is 1.        
-    sname['TPP3'] = ['tp','228','1.0','228.128']       #Accumulated precipitation. units of m. multiplier is 1.        
-    sname['RGHS'] = ['fsr','244','1.0', "244.128"]   #forecast surface roughnes : units m
+    sname['TPP1'] = ['tp','228','1.0','228.128','total_precipitation']       #Accumulated precipitation. units of m. multiplier is 1.        
+    sname['TPP3'] = ['tp','228','1.0','228.128','total_precipitation']       #Accumulated precipitation. units of m. multiplier is 1.        
+    sname['RGHS'] = ['fsr','244','1.0', "244.128",'forecast_surface_roughness']   #forecast surface roughnes : units m
 
     #It looks like the means are not output every hour so do not use them.
     #if means:
     #    sname['SHTF'] = ['msshf','146', '1.0', '33.235'] #units W/m^2 (surface sensible heat flux)      
     #    sname['LTHF'] = ['mslhf','34', '1.0', '34.235']  #latent heat flux. same as sshf            
-    sname['SHTF'] = ['sshf','146', amult,'146.128'] #units J/m^2 (surface sensible heat flux) (divide by 3600 to get W/m^2)     
-    sname['LTHF'] = ['slhf','147', amult,'147.128'] #same as sshf            
+    sname['SHTF'] = ['sshf','146', amult,'146.128', 'surface_sensible_heat_flux'] #units J/m^2 (surface sensible heat flux) (divide by 3600 to get W/m^2)     
+    sname['LTHF'] = ['slhf','147', amult,'147.128','surface_latent_heat_flux'] #same as sshf            
     if instant:
         #instaneous fluxes may be more desireable since use instanteous winds.
-        sname['SHTF'] = ['ishf','231','1.0','231.128'] #instantaneous SHTF. units W/m^2.
+        sname['SHTF'] =\
+                      ['ishf','231','1.0','231.128',
+                       'instantaneous_surface_sensible_heat_flux'] #instantaneous SHTF. units W/m^2.
 
-    sname['DSWF'] = ['ssrd','169', amult,'169.128']  #Accumulated. units J/m^2         
-    sname['USTR'] = ['zust','3', '1.0','3.228']      #units of m/s (multiplier should be 1)      
+    sname['DSWF'] = ['ssrd','169', amult,'169.128',
+                     'surface_solar_radiation_downwards']  #Accumulated. units J/m^2         
+    sname['USTR'] = ['zust','3', '1.0','3.228','friction_velocity']      #units of m/s (multiplier should be 1)      
 
 
     ###"The accumulations in the short forecasts (from 06 and 18 UTC) of ERA5 are treated differently 
@@ -184,12 +194,14 @@ def createparamstr(paramlist, means=True):
     param=getvars(means=means) 
     paramstr = ''
     i=0
+    pl=True
+    if pl: knum=0
     for key in paramlist:
         if key in list(param.keys()):
             if i == 0:
-               paramstr += param[key][3] 
+               paramstr += param[key][4] 
             else:
-               paramstr += '/' + param[key][3] 
+               paramstr += '/' + param[key][4] 
             i+=1
         else:
             print("No code for " , key , " available.") 
@@ -374,8 +386,8 @@ if levtype == "pl":
 else:
     ##level 40 is about 24.5 km. Level 137 is 10 m
     ##level 49 is about 20 km.
-    levstr = "/".join(map(str, list(range(30,137))))
-    levs = list(range(30,137))
+    levstr = "/".join(map(str, list(range(1,137))))
+    levs = list(range(1,137))
 ##########################################################################################
 
 
@@ -490,7 +502,7 @@ for wtime in wtimelist:
        param3d = ['TEMP' , 'UWND', 'VWND' , 'WWND' , 'RELH' , 'HGTS' ]
        rstr = 'reanalysis-era5-pressure-levels'
     elif levtype=='ml':
-       param3d = ['TEMP' , 'UWND', 'VWND' , 'WWND' , 'SPHU']
+       param3d = ['TEMP' , 'UWND', 'VWND' , 'WWND' , 'SPHU', 'HGTS','LNSP']
        rstr = 'reanalysis-era5-complete'
     f3list.append(file3d+ estr + tstr)
     if options.retrieve3d:
@@ -507,7 +519,7 @@ for wtime in wtimelist:
         if options.run and levtype=='pl':
             server.retrieve(rstr,
                     {
-                    'variable'      :  paramstr,
+                    'variable'      :  paramstr.split('/'),
                     'pressure_level':  levs,
                     'product_type'  :  wtype,
                     'year'          : yearstr,
@@ -542,7 +554,8 @@ for wtime in wtimelist:
     ##For CDSAPI the year month day and time are the validityDate and validityTime.
     pextra = ['UMOF','VMOF','DP2M','TCLD']
     pextraf = ['RGHS']
-    param2da = ['T02M', 'V10M', 'U10M', 'PRSS','PBLH', 'CAPE', 'SHGT']
+    #param2da = ['T02M', 'V10M', 'U10M', 'PRSS','PBLH', 'CAPE', 'SHGT']
+    param2da = ['T02M', 'V10M', 'U10M', 'PRSS','PBLH', 'CAPE']
     param2df = [precip, 'SHTF' , 'DSWF', 'LTHF', 'USTR']
     if options.extra:
        param2da.extend(pextra)
@@ -564,7 +577,7 @@ for wtime in wtimelist:
             server.retrieve('reanalysis-era5-single-levels',
                         {
                          'product_type' : wtype,
-                         'variable' : paramstr,
+                         'variable' : paramstr.split('/'),
                          'year'     : yearstr,
                          'month'    : monthstr,
                          'day'      : daystr,
