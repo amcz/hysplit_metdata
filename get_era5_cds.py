@@ -133,10 +133,10 @@ def write_cfg(tparamlist, dparamlist, levs, tm=1, levtype='pl', cfgname = 'new_e
        aaa=1
        bbb=1
     elif levtype=='ml':
-       aaa=4
-       bbb=5
+       aaa=5
+       bbb=6
 
-    sname=getvars(means=means, tm=tm)
+    sname=getvars(means=means, tm=tm, levtype=levtype)
 
     numatm = str(len(tparamlist))
     atmgrb = ''
@@ -186,7 +186,7 @@ def write_cfg(tparamlist, dparamlist, levs, tm=1, levtype='pl', cfgname = 'new_e
          fid.write('/\n')
 
 
-def createparamstr(paramlist, means=True):
+def createparamstr(paramlist, means=True, levtype='pl'):
     """contains a dictionary of codes for the parameters to be retrieved. Input a list of string descriptors of the
        parameters. Output is a string of codes which can be used in the server.retrieve() function.
        4 letter codes used for dictionary keys correspond to codes used by fortran ecmwf2arl converter. 
@@ -194,14 +194,15 @@ def createparamstr(paramlist, means=True):
     param=getvars(means=means) 
     paramstr = ''
     i=0
-    pl=True
-    if pl: knum=0
+    knum=4
+    if levtype=='pl': knum=4
+    if levtype=='ml': knum=0
     for key in paramlist:
         if key in list(param.keys()):
             if i == 0:
-               paramstr += param[key][4] 
+               paramstr += param[key][knum] 
             else:
-               paramstr += '/' + param[key][4] 
+               paramstr += '/' + param[key][knum] 
             i+=1
         else:
             print("No code for " , key , " available.") 
@@ -509,7 +510,7 @@ for wtime in wtimelist:
         print( 'RETRIEVING 3d ' + levtype + ' '.join(param3d) )
         levs = list(map(str, levs))
         print('Retrieve levels ' , levs)
-        paramstr = createparamstr(param3d, means=means)
+        paramstr = createparamstr(param3d, means=means, levtype=levtype)
         with open(mfilename, 'w') as mid: 
             mid.write('retrieving 3d data \n')
             mid.write(paramstr + '\n')
@@ -566,7 +567,8 @@ for wtime in wtimelist:
     f2list.append(file2d+estr+tstr)
     if options.retrieve2d or options.retrieve2da:
         print( 'RETRIEVING 2d ' + ' '.join(param2da) )
-        paramstr = createparamstr(param2da, means=means)
+        ##levtype for 2d is always pl for creating paramstr purposes.
+        paramstr = createparamstr(param2da, means=means, levtype='pl')
         with open(mfilename, 'a') as mid: 
             mid.write('retrieving 2d data \n')
             mid.write(paramstr + '\n')
@@ -589,7 +591,7 @@ for wtime in wtimelist:
                          },
                           file2d + estr + '.all' + tstr)
     if options.retrieve2df:
-        paramstr = createparamstr(param2df, means=means)
+        paramstr = createparamstr(param2df, means=means,levtype='pl')
         if options.run:
             server.retrieve('reanalysis-era5-single-levels',
                         {
