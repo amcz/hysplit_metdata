@@ -47,16 +47,16 @@ def getvars(means=False, tm=1, levtype='pl'):
     ##In the grib2 file for the model levels, these are used to identify the
     ##variable.
     ##For the pressure levels the indicatorOfParameter (second in the list) is used.
-    sname['TEMP'] = ['t', '130', '1.0', '130.128', '0','0']    #units K
-    sname['UWND'] = ["u", '131', '1.0', '131.128', '2','2']    #units m/s
-    sname['VWND'] = ["v", '132', '1.0', '132.128', '2','3']    #units m/s
-    sname['WWND'] = ["w", '135', '0.01','135.128', '2','8']   #units Pa/s. convert to hPa/s for HYSPLIT
-    sname['RELH'] = ["r", '157', '1.0', '157.128']    #units %
-    sname['HGTS'] = ["z", '129', '0.102','129.128','-1','-1']  #units m^2 / s^2. Divide by 9.8m/s^2 to get meters.
+    sname['TEMP'] = ['t', '130', '1.0', '130.128', 'temperature','0','0']    #units K
+    sname['UWND'] = ["u", '131', '1.0', '131.128', 'u_component_of_wind','2','2']    #units m/s
+    sname['VWND'] = ["v", '132', '1.0', '132.128', 'v_component_of_wind','2','3']    #units m/s
+    sname['WWND'] = ["w", '135', '0.01','135.128','vertical_velocity', '2','8']   #units Pa/s. convert to hPa/s for HYSPLIT
+    sname['RELH'] = ["r", '157', '1.0', '157.128','relative_humidity']    #units %
+    sname['HGTS'] = ["z", '129', '0.102','129.128','geopotential','-1','-1']  #units m^2 / s^2. Divide by 9.8m/s^2 to get meters.
     #sname['SPHU']= "q"     #units kg / kg category 1, number 0. multiplier is 1   #specific humidity. redundant since have RELH
 
     #3d fields. model levels
-    sname['SPHU'] = ['q', '133','1.0','133.128', '-1', '-1'] #units kg/kg
+    sname['SPHU'] = ['q', '133','1.0','133.128','specific_humidity', '-1', '-1'] #units kg/kg
     sname['ZWND'] = ['etadot', '77','1.0','133.128', '-1', '-1'] #eta-coordinate vertical velocity units s^-1
     sname['LNSP'] = ['lnsp', '152','1.0','152.128', '-1', '-1'] #log pressure
 
@@ -507,7 +507,8 @@ for wtime in wtimelist:
     f3list.append(file3d+ estr + tstr)
     if options.retrieve3d:
         print( 'RETRIEVING 3d ' + levtype + ' '.join(param3d) )
-        print('Retrieve levels ' , levstr)
+        levs = list(map(str, levs))
+        print('Retrieve levels ' , levs)
         paramstr = createparamstr(param3d, means=means)
         with open(mfilename, 'w') as mid: 
             mid.write('retrieving 3d data \n')
