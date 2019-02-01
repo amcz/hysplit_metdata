@@ -52,13 +52,13 @@ def getvars(means=False, tm=1, levtype='pl'):
     sname['VWND'] = ["v", '132', '1.0', '132.128', 'v_component_of_wind','2','3']    #units m/s
     sname['WWND'] = ["w", '135', '0.01','135.128','vertical_velocity', '2','8']   #units Pa/s. convert to hPa/s for HYSPLIT
     sname['RELH'] = ["r", '157', '1.0', '157.128','relative_humidity']    #units %
-    sname['HGTS'] = ["z", '129', '0.102','129.128','geopotential','-1','-1']  #units m^2 / s^2. Divide by 9.8m/s^2 to get meters.
+    sname['HGTS'] = ["z", '129', '0.102','129.128','geopotential','3','4']  #units m^2 / s^2. Divide by 9.8m/s^2 to get meters.
     #sname['SPHU']= "q"     #units kg / kg category 1, number 0. multiplier is 1   #specific humidity. redundant since have RELH
 
     #3d fields. model levels
-    sname['SPHU'] = ['q', '133','1.0','133.128','specific_humidity', '-1', '-1'] #units kg/kg
+    sname['SPHU'] = ['q', '133','1.0','133.128','specific_humidity', '1', '0'] #units kg/kg
     sname['ZWND'] = ['etadot', '77','1.0','133.128', '-1', '-1'] #eta-coordinate vertical velocity units s^-1
-    sname['LNSP'] = ['lnsp', '152','1.0','152.128', '-1', '-1'] #log pressure
+    sname['LNSP'] = ['lnsp', '152','1.0','152.128', '', '3', '25'] #log pressure
 
     #2D/surface analyses fields. 
     #REQUIRED
@@ -311,7 +311,8 @@ if not(options.retrieve3d) and not(options.retrieve2d) and not(options.retrieve2
    options.retrieve3d=True
    options.retrieve2da=True
 
-means=False #retrieve mean fluxes instead of accumulated when possible.
+means=False #if true retrieve mean fluxes instead of accumulated when possible.
+            #some means are not available every hour so set to False.
 
 get_precip = options.get_precip
 
@@ -327,15 +328,21 @@ dataset = 'era5'
 area = options.area
 grid=options.grid
 startdate = datetime.datetime(year, month, day, 0)
-tpptstart = startdate - datetime.timedelta(hours=24)  #need to retrieve forecast variables from previous day.
+#tpptstart = startdate - datetime.timedelta(hours=24)  #need to retrieve forecast variables from previous day.
 
+#tppt_datestr = tpptstart.strftime('%Y-%m-%d') 
 datestr = startdate.strftime('%Y-%m-%d') 
-tppt_datestr = tpptstart.strftime('%Y-%m-%d') 
-
 yearstr = startdate.strftime('%Y')
 monthstr = startdate.strftime('%m')
 daystr = startdate.strftime('%d')
 
+###"137 hybrid sigma/pressure (model) levels in the vertical with the top level at 0.01hPa. Atmospheric data are
+###available on these levels and they are also interpolated to 37 pressure, 16 potential temperature and 1 potential vorticity level(s).
+##model level fields are in grib2. All other fields (including pressure levels) are in grib1 format.
+#if options.leveltype == "pl":
+levtype = "pl"
+if options.leveltype == "ml":
+    levtype = "ml"
 
 stream = options.stream
 if stream not in ['oper', 'enda']:
@@ -346,49 +353,39 @@ if stream == 'enda':
    wtype="ensemble_members" 
    print("retrieving ensemble")
    precip='TPP3'  #for ensemble precip accumulated over 3 hours.
+   levtype='enda'
 else:
    estr=''
    wtype="reanalysis" 
    precip='TPP1'  #normally precip accumulated over 1 hour.
 
-###"137 hybrid sigma/pressure (model) levels in the vertical with the top level at 0.01hPa. Atmospheric data are
-###available on these levels and they are also interpolated to 37 pressure, 16 potential temperature and 1 potential vorticity level(s).
-
-##model level fields are in grib2. All other fields (including pressure levels) are in grib1 format.
-#if options.leveltype == "pl":
-levtype = "pl"
-if options.leveltype == "ml":
-    levtype = "ml"
-#else:
-#    print "WARNING: leveltype not supported. Only pl (pressure levels) or ml (model levels) supported"
-#    sys.exit()
 
 ##Pick pressure levels to retrieve. ################################################################
 ##Can only pick a top level 
-if levtype == "pl":
-    totlevs = {}
-    totlevs['interim'] = 37
-    totlevs['era5'] = 37
-    nlevels = totlevs[dataset]
-    #levs = range(750,1025,25) + range(150,750,50) + range(100,150,25) + [1,2,3,5,6,10,20,30,50,70]
+if levtype == "pl" or levtype=='enda':
     levs = list(range(750,1025,25)) + list(range(300,750,50)) + list(range(100,275,25)) + [1,2,3,5,7,10,20,30,50,70]
     levs = sorted(levs, reverse=True)
     if options.toplevel != 1: 
-    #   levstr = 'all'
-    #else:
        levs = [y for y in levs if y>=options.toplevel]
        levs = sorted(levs, reverse=True)
        levstr = str(levs[0])
-       nlevels = len(levstr)
     else:
        levstr = ''
     for lv in levs[1:]:
        levstr += '/' + str(lv)  
-else:
+#Retrieve all model levels. Modify this if need only certain model levels.
+#May need level one since it has geopotential.
+elif levtype=='ml':
+    ##pakset header will not work with 137 levels right now.
+    ##use every other level.
+    step=2
     ##level 40 is about 24.5 km. Level 137 is 10 m
     ##level 49 is about 20 km.
-    levstr = "/".join(map(str, list(range(1,137))))
-    levs = list(range(1,137))
+    levstr = "/".join(map(str, list(range(1,137,1))))
+    levs = list(range(1,137,1))
+    cfglevs = list(range(1,137,step))
+else:
+    levs = []
 ##########################################################################################
 
 
@@ -415,9 +412,6 @@ file3d = options.dir + f3d
 file2d = options.dir + f2d
 filetppt = options.dir + ftppt
 
-#datestr = str(year) + monthstr + firstdaystr + '/to/' + str(year) + monthstr + lastdaystr
-print("Retrieve for: " , datestr)
-
 #server = ECMWFDataServer(verbose=False)
 server=cdsapi.Client()
 
@@ -439,7 +433,7 @@ if stream == 'oper':
     #wtimelist = [wtime1]
 #ensemble data only availabe every 3 hours.
 elif stream == 'enda':
-    wtime1 =  "00:00:00/03:00:00/06:00:00/09:00:00/12:00:00/15:00:00/18:00:00/21:00:00"
+    wtime1 =  "00:00/03:00/06:00/09:00/12:00/15:00/18:00/21:00"
     wtimelist = [wtime1]
 
 
@@ -502,9 +496,15 @@ for wtime in wtimelist:
     if levtype=='pl':
        param3d = ['TEMP' , 'UWND', 'VWND' , 'WWND' , 'RELH' , 'HGTS' ]
        rstr = 'reanalysis-era5-pressure-levels'
+       estr='pl'
     elif levtype=='ml':
        param3d = ['TEMP' , 'UWND', 'VWND' , 'WWND' , 'SPHU', 'HGTS','LNSP']
        rstr = 'reanalysis-era5-complete'
+       estr='ml'
+    elif levtype=='enda':
+       param3d = ['TEMP' , 'UWND', 'VWND' , 'WWND' , 'RELH' , 'HGTS' ]
+       rstr = 'reanalysis-era5-complete'
+       estr='enda'
     f3list.append(file3d+ estr + tstr)
     if options.retrieve3d:
         print( 'RETRIEVING 3d ' + levtype + ' '.join(param3d) )
@@ -534,9 +534,11 @@ for wtime in wtimelist:
                     },
                      file3d + estr + tstr)
         if options.run and levtype=='ml':
+            rstr = 'reanalysis-era5-complete'
             server.retrieve(rstr,
                     {
                     'class'    : 'ea',
+                    'levtype'  : 'ml',    
                     'expver'   : 'l',
                     'stream'   : 'oper',
                     'type'     : 'an',
@@ -550,6 +552,27 @@ for wtime in wtimelist:
                     'format'   : 'grib'
                     },
                      file3d + estr + tstr)
+        if options.run and levtype=='enda':
+            server.retrieve(rstr,
+                    {
+                    'class'    : 'ea',
+                    'expver'   : 'l',
+                    'dataset'  : 'era5',
+                    'stream'   : 'enda',
+                    'type'     : 'an',
+                    'levtype'  : 'pl',    #TODO is there ensemble data on ml?
+                    'param'    : paramstr,
+                    'origin'   : "all",
+                    'levelist' :  levs,
+                    'date'     : datestr,
+                    'time'     : wtime,
+                    'grid'     : grid,
+                    'area'     : area,
+                    'format'   : 'grib',
+                    'number'   : '0/1/2/3/4/5/6/7/8/9'
+                    },
+                     file3d + estr + tstr)
+                 
                  
     ##The surface variables can be retrieved in the same file with CDS.
     ##This was not the case with the ecmwf api.
@@ -562,7 +585,9 @@ for wtime in wtimelist:
     if options.extra:
        param2da.extend(pextra)
        param2df.extend(pextraf)
-    if options.retrieve2da: param2da.extend(param2df)
+    if options.retrieve2da: 
+       param2da.extend(param2df)
+       estr += '.all'
     ####retrieving 2d fields
     f2list.append(file2d+estr+tstr)
     if options.retrieve2d or options.retrieve2da:
@@ -576,7 +601,8 @@ for wtime in wtimelist:
             mid.write('type ' + wtype + '\n')
             mid.write('date ' + datestr + '\n')
             mid.write('-------------------\n')
-        if options.run:
+        if options.run and levtype!='enda':
+            print('Retrieving surface data')
             server.retrieve('reanalysis-era5-single-levels',
                         {
                          'product_type' : wtype,
@@ -589,7 +615,30 @@ for wtime in wtimelist:
                          'format'   : 'grib',
                          'grid'    :grid 
                          },
-                          file2d + estr + '.all' + tstr)
+                          file2d + estr + tstr)
+        if options.run and levtype=='enda':
+            print('Retrieving ensemble')
+            rstr = 'reanalysis-era5-complete'
+            server.retrieve(rstr,
+                    {
+                    'class'    : 'ea',
+                    'expver'   : 'l',
+                    'dataset'  : 'era5',
+                    'stream'   : 'enda',
+                    'type'     : 'an',
+                    'levtype'  : 'sfc',    
+                    'param'    : paramstr,
+                    'origin'   : "all",
+                    'levelist' :  levs,
+                    'date'     : datestr,
+                    'time'     : wtime,
+                    'grid'     : grid,
+                    'area'     : area,
+                    'format'   : 'grib',
+                    'number'   : '0/1/2/3/4/5/6/7/8/9'
+                    },
+                     file2d + estr + tstr)
+                 
     if options.retrieve2df:
         paramstr = createparamstr(param2df, means=means,levtype='pl')
         if options.run:
@@ -620,7 +669,7 @@ tm=1
 if stream=='enda': tm=3
 if options.retrieve2df and not options.retrieve2da:
    param2da.extend(param2df)
-
+if levtype=='ml': levs=cfglevs
 write_cfg(param3d, param2da, levs, tm=tm, levtype=levtype)
 
 #Notes on the server.retrieve function.
