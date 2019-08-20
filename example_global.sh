@@ -51,7 +51,7 @@ MDL=$HOME/hysplit/data2arl/era52arl/
 monthname='Jan'
 for month in '01'
 do
-     for day  in   $(seq 01  31)
+     for day  in   {01..31}
      do
      dailyfile=ERA5_${year}${month}${day}.ARL
      for tm in $(seq 1 $splitnum)
