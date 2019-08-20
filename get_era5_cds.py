@@ -129,7 +129,7 @@ def write_cfg(tparamlist, dparamlist, levs, tm=1, levtype='pl', cfgname = 'new_e
     #or tables in the ERA5 documentation - 
     #https://software.ecmwf.int/wiki/display/CKB/ERA5+data+documentation#ERA5datadocumentaion-Paramterlistings
     print(dparamlist)
-    if levtype=='pl':
+    if levtype=='pl' or levtype=='enda':
        aaa=1
        bbb=1
     elif levtype=='ml':
@@ -197,6 +197,7 @@ def createparamstr(paramlist, means=True, levtype='pl'):
     knum=4
     if levtype=='pl': knum=4
     if levtype=='ml': knum=0
+    if levtype=='enda': knum=3
     for key in paramlist:
         if key in list(param.keys()):
             if i == 0:
@@ -250,19 +251,13 @@ parser.add_option("-m", type="int" , dest="month" , default=1,
                   help = "{1} Month to retrieve. type integer")
 parser.add_option("-d", type="int" , dest="day" , default='1',
                   help = "Default is to retrieve one day split into four files. ")
-parser.add_option("-f", action="store_true" , dest="getfullday" , default=False, 
-                  help = "If set then will retrieve one grib file per day. \
-                          default is to split the 3d and 2d analysis files into 6 hour increments.\
-                          The reason for this is that full day grib files for the global dataset will \
-                          be too large for the conversion program. If a smaller area is being extracted then\
-                          you may wish to use this option. The conversion program requires grib files less than\
-                          2 gb in size. \
-                          2d forecast is always retreived for the full day." )
+parser.add_option("-f", type="int" , dest="placeholder" , default='1',
+                  help = "Does not do anything.")
 parser.add_option("--dir", type="string" , dest="dir" , default='./',
                   help = "{./} Directory where files are to be stored. ")
 parser.add_option("-o", type="string" , dest="fname" , default='',
                   help = "Output filename stem. 3D.grib and 2D.grib will be added on. \
-                  The default is to call it DATASET_YYYY.MMM where MMM is the three letter abbreviation for month. \
+                  The default is to call it ERA5_YYYY.MMM where MMM is the three letter abbreviation for month. \
                   If a day range is specified then the default will be DATASET_YYYY.MMM.dd-dd.")
 parser.add_option("--3d", action="store_true" , dest="retrieve3d" , default=False,
                   help = "If set then it retrieve 3d data. If none of the following are set:\
@@ -278,16 +273,6 @@ parser.add_option("--2df", action="store_true" , dest="retrieve2df" , default=Fa
 parser.add_option("-s", type="string" , dest="stream" , default='oper',
                   help = "default is oper which retrieves deterministic analyses. \
                           enda will retrieve ensemble.")
-parser.add_option("--noprecip", action="store_false" , dest="get_precip" , default= True, 
-                  help = "Default is to retrieve 2D fields in a .2d.grib file which has analysis values for \
-                          and a separate 2D file in a .2df.grib file which has forecast values. \
-                          If the --noprecip field is set then the .2df.grib file will not be retrieved. \
-                          ")
-parser.add_option("--check", action="store_false" , dest="run" , default='true', 
-                  help = "If set then simply echo command. Do not retrieve\
-                          data. Will create the cfg file." )
-parser.add_option("--extra", action="store_true" , dest="extra" , default='False', 
-                  help = "download UMOF, VMOF, TCLD, RGHS, DP2M" )
 parser.add_option("-g", action="store_true" , dest="grib2arl" , default= False, 
                   help = "If set then will append lines to a shell script for converting the files to arl format.") 
 parser.add_option("-l", type="int" , dest="toplevel" , default= 1, 
@@ -296,13 +281,40 @@ parser.add_option("-l", type="int" , dest="toplevel" , default= 1,
 #parser.add_option("-t", type="string" , dest="leveltype" , default= "pl", 
 #                  help = "default is pressure levels (pl) which will retrieve grib1 file \
 #                          Can also choose model levels (ml). There are 137 model levels. This will retrieve grib2 file.") 
+parser.add_option("-t", type="string" , dest="leveltype" , default= "pl" ,
+                  help='default is pl retrieve pressure levels. Can also use ml\
+                        for model levels. Converter for model levels is\
+                        currently not available.')
 parser.add_option("--area", type="string" , dest="area" , default= "90/-180/-90/180", 
                   help = "choose the area to extract. Format is North/West/South/East \
                           North/West gives the upper left corner of the bounding box. \
                           South/East gives the lower right corner of the bounding box. \
                           Southern latitudes and western longiutdes are given negative numbers.") 
-parser.add_option("--grid", type="string" , dest="grid" , default= "0.25/0.25" )
-parser.add_option("-t", type="string" , dest="leveltype" , default= "pl" )
+parser.add_option("--check", action="store_false" , dest="run" , default='true', 
+                  help = "If set then simply echo command. Do not retrieve\
+                          data. Will create the cfg file." )
+parser.add_option("--extra", action="store_true" , dest="extra" , default='False', 
+                  help = "download UMOF, VMOF, TCLD, RGHS, DP2M into the \
+                          surface file." )
+parser.add_option("--grid", type="string" , dest="grid" , default= "0.25/0.25",
+                  help="set horizontal grid resolution to be retrieved. The\
+                        default is 0.25/0.25 which is highest possible\
+                        resolution"  )
+parser.add_option("--split", type="int" , dest="getfullday" , default=1, 
+                  help = "Set number of time periods to split day into.  \
+                          Default is 1 to retrieve full day in 1 file. \
+                          Possible values are 1, 2, 4, and 8. \
+                          8 will split the files into 3 hour increments, T1 to T8.\
+                          4 will split the files into 6 hour increments, T1 to T4.\
+                          2 will split the files into 12 hour increments, T1 to T2.\
+                          If a non-valid value is entered, then 8 will be used.\
+                          The reason for this is that full day grib files for\
+                          the global or large area datasets may \
+                          be too large to download." )
+parser.add_option("-q", type="int" , dest="timeperiod" , default=-99, 
+                  help = "Used in conjuction with --split to retrieve only one\
+                          of the 3 hour time periods. \
+                          Values 1-8 are valid.")
 
 
 #If no retrieval options are set then retrieve 2d data and 2d data in one file.
@@ -314,7 +326,6 @@ if not(options.retrieve3d) and not(options.retrieve2d) and not(options.retrieve2
 means=False #if true retrieve mean fluxes instead of accumulated when possible.
             #some means are not available every hour so set to False.
 
-get_precip = options.get_precip
 
 #mid = open('recmwf.txt','w')
 mfilename = 'get_era5_message.txt'
@@ -422,20 +433,46 @@ server=cdsapi.Client()
 
 if stream == 'oper':
 ##need to break each day into four time periods to keep 3d grib files at around 1.6 GB
-    wtime1 =  "00:00/01:00/02:00/03:00/04:00/05:00"
-    wtime2 =  "06:00/07:00/08:00/09:00/10:00/11:00"
-    wtime3 =  "12:00/13:00/14:00/15:00/16:00/17:00"
-    wtime4 =  "18:00/19:00/20:00/21:00/22:00/23:00"
-    if options.getfullday:
-        wtimelist = [wtime1 + '/' + wtime2 + '/' + wtime3 + '/' + wtime4]
-    else: #retrieve day in 4 different files with 6 hour increments.
-        wtimelist = [wtime1, wtime2, wtime3, wtime4]
+    #wtime1 =  "00:00/01:00/02:00/03:00/04:00/05:00"
+    #wtime2 =  "06:00/07:00/08:00/09:00/10:00/11:00"
+    #wtime3 =  "12:00/13:00/14:00/15:00/16:00/17:00"
+    #wtime4 =  "18:00/19:00/20:00/21:00/22:00/23:00"
+
+    wtime1 =  "00:00/01:00/02:00"
+    wtime2 =  "03:00/04:00/05:00"
+    wtime3 =  "06:00/07:00/08:00"
+    wtime4 =  "09:00/10:00/11:00"
+    wtime5 =  "12:00/13:00/14:00"
+    wtime6 =  "15:00/16:00/17:00"
+    wtime7 =  "18:00/19:00/20:00"
+    wtime8 =  "21:00/22:00/23:00"
+    wtimelist = [wtime1, wtime2, wtime3, wtime4,wtime5,wtime6,wtime7,wtime8]
+
+    if options.getfullday==1:
+       wtimelist = [str.join('/', wtimelist)]
+
+    elif options.getfullday==4:
+       wt1 = str.join('/', [wtime1,wtime2])  
+       wt2 = str.join('/', [wtime3,wtime4])  
+       wt3 = str.join('/', [wtime5,wtime6])  
+       wt4 = str.join('/', [wtime7,wtime8])  
+       wtimelist = [wt1,wt2, wt3, wt4]
+
+    elif options.getfullday==2:
+       wt1 = str.join('/', [wtime1,wtime2,wtime3,wtime4])  
+       wt2 = str.join('/', [wtime5,wtime6,wtime7,wtime8])  
+       wtimelist = [wt1,wt2]
+    else:
+       wtimelist = [wtime1, wtime2, wtime3, wtime4,wtime5,wtime6,wtime7,wtime8]
+
     #wtimelist = [wtime1]
 #ensemble data only availabe every 3 hours.
 elif stream == 'enda':
     wtime1 =  "00:00/03:00/06:00/09:00/12:00/15:00/18:00/21:00"
     wtimelist = [wtime1]
 
+#print(options.getfullday)
+#print(wtimelist)
 
 #___________________This block for setting time and step for surface fields that are only 
 #                   available as forecast.
@@ -484,9 +521,13 @@ f2flist = []
 iii=1
 ###SPLIT retrieval into four time periods so files will be smaller.
 for wtime in wtimelist:
+    if options.getfullday!=1 and options.timeperiod!=-99 and options.timeperiod!=iii: 
+       print('Skipping time period T', str(iii))
+       iii+=1
+       continue
     print("Retrieve for: " , datestr, wtime)
     #print wtime
-    if options.getfullday:
+    if options.getfullday==1:
         tstr =  '.grib'
     else:
         tstr = '.T' + str(iii) + '.grib'
@@ -553,6 +594,7 @@ for wtime in wtimelist:
                     },
                      file3d + estr + tstr)
         if options.run and levtype=='enda':
+            paramstr = createparamstr(param3d, means=means, levtype='enda')
             server.retrieve(rstr,
                     {
                     'class'    : 'ea',
@@ -593,7 +635,8 @@ for wtime in wtimelist:
     if options.retrieve2d or options.retrieve2da:
         print( 'RETRIEVING 2d ' + ' '.join(param2da) )
         ##levtype for 2d is always pl for creating paramstr purposes.
-        paramstr = createparamstr(param2da, means=means, levtype='pl')
+        ##levtype for 2d is always pl for creating paramstr purposes.
+        paramstr = createparamstr(param2da, means=means, levtype=levtype)
         with open(mfilename, 'a') as mid: 
             mid.write('retrieving 2d data \n')
             mid.write(paramstr + '\n')
@@ -602,6 +645,7 @@ for wtime in wtimelist:
             mid.write('date ' + datestr + '\n')
             mid.write('-------------------\n')
         if options.run and levtype!='enda':
+            paramstr = createparamstr(param2da, means=means, levtype='pl')
             print('Retrieving surface data')
             server.retrieve('reanalysis-era5-single-levels',
                         {
@@ -617,6 +661,7 @@ for wtime in wtimelist:
                          },
                           file2d + estr + tstr)
         if options.run and levtype=='enda':
+            paramstr = createparamstr(param2da, means=means, levtype='enda')
             print('Retrieving ensemble')
             rstr = 'reanalysis-era5-complete'
             server.retrieve(rstr,
