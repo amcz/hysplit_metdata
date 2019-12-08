@@ -21,21 +21,27 @@ It should be renamed  era52arl.cfg  to be read automatically by the program.
 Currently era52arl can only convert data on pressure levels.
 There are plans to add capability to convert data on the model levels.
 
+# Possible Issues
+
+Users may not want to use friction velocity, HYSPLIT code USTR, grib short name zust.
+This quantity is usually used in the default setting KBLS=1 to calculate stability (see https://ready.arl.noaa.gov/hysplitusersguide/S625.htm).
+
+Using this may lead to inaccurate estimations of stability and undermixing which may be related to this issue.
+https://confluence.ecmwf.int/display/CKB/ERA5+instantaneous+surface+stress+and+friction+velocity+over+the+oceans
+
+To make sure HYSPLIT does not use the friction velocity from ERA5 the following can be done.
+
+* If ustr is already in the converted file and you do not want to convert the file again. set kbls=2 in the SETUP.CFG file.
+
+* If you have not converted the files yet.
+edit the era52arl.cfg file which is input into the era52arl program and remove the ustr column. Then the conversion program will not add the friction velocity to the ARL file.
+
+* edit the get_era5_cds.py so that USTR is not downloaded.
+
 # installing cdsapi
 https://cds.climate.copernicus.eu/api-how-to
 You will need to create an account with Copernicus Data Service to receive an api key.
 The api key must be stored in $HOME/.cdsapirc
 
-# hysplit_metdata uses the ecmwf-api
-# Installing ecmwfapi module
-For instructions on creating an ecmwf account and retrieving a key see <br>
-[https://software.ecmwf.int/wiki/display/WEBAPI/Accessing+ECMWF+data+servers+in+batch]
+# hysplit_metdata uses the ecmwf-api which is no longer supported.
 
-The api key must be stored in the $HOME/.ecmwfapirc file. <br>
-The api key can be found at [https://api.ecmwf.int/v1/key/]
-
-You may also download the tar file from the webpage and place the ecmwfapi directory so
-that is in your PYTHONPATH or it can also be a subdirectory of the directory where get_era5.py is located.
-
-If you have conda you  can also install by
-conda install -c conda-forge ecmwf-api-client
