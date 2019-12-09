@@ -38,7 +38,7 @@ if the -g option is set will write a shell script to run the era52arl utility.
 
 def getvars(means=False, tm=1, levtype='pl'):
     instant=True
-    if tm==1: amult = '0.00028'
+    if tm==1: amult = '0.00028'  #1/3600 s
     if tm==3: amult = '9.26e-5'
     sname={}
     #3d fields. pressure levels. Instantaneous.
@@ -94,7 +94,8 @@ def getvars(means=False, tm=1, levtype='pl'):
     #if means:
     #    sname['SHTF'] = ['msshf','146', '1.0', '33.235'] #units W/m^2 (surface sensible heat flux)      
     #    sname['LTHF'] = ['mslhf','34', '1.0', '34.235']  #latent heat flux. same as sshf            
-    sname['SHTF'] = ['sshf','146', amult,'146.128', 'surface_sensible_heat_flux'] #units J/m^2 (surface sensible heat flux) (divide by 3600 to get W/m^2)     
+    #Also having trouble getting accumulated sshf to convert.
+    #sname['SHTF'] = ['sshf','146', amult,'146.128', 'surface_sensible_heat_flux'] #units J/m^2 (surface sensible heat flux) (divide by 3600 to get W/m^2)     
     sname['LTHF'] = ['slhf','147', amult,'147.128','surface_latent_heat_flux'] #same as sshf            
     if instant:
         #instaneous fluxes may be more desireable since use instanteous winds.
@@ -135,7 +136,9 @@ def write_cfg(tparamlist, dparamlist, levs, tm=1, levtype='pl', cfgname = 'new_e
     elif levtype=='ml':
        aaa=5
        bbb=6
-
+       
+    if levtype == 'ml':
+        cfgname = levtype + cfgname
     sname=getvars(means=means, tm=tm, levtype=levtype)
 
     numatm = str(len(tparamlist))
@@ -315,6 +318,9 @@ parser.add_option("-q", type="int" , dest="timeperiod" , default=-99,
                   help = "Used in conjuction with --split to retrieve only one\
                           of the 3 hour time periods. \
                           Values 1-8 are valid.")
+parser.add_option("--test", action="store_true" , dest="test" , default='False', 
+                  help = "run tests. \
+                          " )
 
 
 #If no retrieval options are set then retrieve 2d data and 2d data in one file.
@@ -322,6 +328,13 @@ parser.add_option("-q", type="int" , dest="timeperiod" , default=-99,
 if not(options.retrieve3d) and not(options.retrieve2d) and not(options.retrieve2da) and not(options.retrieve2df):
    options.retrieve3d=True
    options.retrieve2da=True
+if options.test:
+   # do not do any retrievals.
+   #options.retrieve3d=False
+   #options.retrieve2d=False
+   #options.retrieve2da=False
+   #options.retrieve2df=False
+   a=1
 
 means=False #if true retrieve mean fluxes instead of accumulated when possible.
             #some means are not available every hour so set to False.
@@ -389,12 +402,24 @@ if levtype == "pl" or levtype=='enda':
 elif levtype=='ml':
     ##pakset header will not work with 137 levels right now.
     ##use every other level.
-    step=2
+    #step=2
+    step=1
     ##level 40 is about 24.5 km. Level 137 is 10 m
     ##level 49 is about 20 km.
-    levstr = "/".join(map(str, list(range(1,137,1))))
-    levs = list(range(1,137,1))
-    cfglevs = list(range(1,137,step))
+    ##level 67 is about 14 km.
+    ##level 80 is about 10 km.
+    ##level 60 is about 16km or 100mb.
+    levstart = 60
+    ##HYSPLIT cannot currently handle more than 74 levels due to
+    ##limitations in the length of the header file.   
+    levstart = 64   
+    
+    levstr = "/".join(map(str, list(range(levstart,138,1))))
+    #levstr = "/".join(map(str, list(range(1,137,1))))
+    levs = list(range(levstart,138,1))
+    cfglevs = list(range(levstart,138,step))
+    # need to be written from bottom level (137) to top for era52arl.cfg
+    cfglevs = cfglevs[::-1]
 else:
     levs = []
 ##########################################################################################
@@ -462,6 +487,11 @@ if stream == 'oper':
        wt1 = str.join('/', [wtime1,wtime2,wtime3,wtime4])  
        wt2 = str.join('/', [wtime5,wtime6,wtime7,wtime8])  
        wtimelist = [wt1,wt2]
+
+    elif options.getfullday==24:
+       wtimelist = []
+       for iii in range(0,24):
+           wtimelist.append(str(iii).zfill(2) + ':00')
     else:
        wtimelist = [wtime1, wtime2, wtime3, wtime4,wtime5,wtime6,wtime7,wtime8]
 
@@ -619,11 +649,13 @@ for wtime in wtimelist:
     ##The surface variables can be retrieved in the same file with CDS.
     ##This was not the case with the ecmwf api.
     ##For CDSAPI the year month day and time are the validityDate and validityTime.
-    pextra = ['UMOF','VMOF','DP2M','TCLD']
+    # moved USTR to the extra variables. There is something a bit odd about it. 
+    # seems to undermix - too small in the daytime.
+    pextra = ['UMOF','VMOF','DP2M','TCLD','USTR']
     pextraf = ['RGHS']
     #param2da = ['T02M', 'V10M', 'U10M', 'PRSS','PBLH', 'CAPE', 'SHGT']
     param2da = ['T02M', 'V10M', 'U10M', 'PRSS','PBLH', 'CAPE']
-    param2df = [precip, 'SHTF' , 'DSWF', 'LTHF', 'USTR']
+    param2df = [precip, 'SHTF' , 'DSWF', 'LTHF']
     if options.extra:
        param2da.extend(pextra)
        param2df.extend(pextraf)
@@ -636,14 +668,7 @@ for wtime in wtimelist:
         print( 'RETRIEVING 2d ' + ' '.join(param2da) )
         ##levtype for 2d is always pl for creating paramstr purposes.
         ##levtype for 2d is always pl for creating paramstr purposes.
-        paramstr = createparamstr(param2da, means=means, levtype=levtype)
-        with open(mfilename, 'a') as mid: 
-            mid.write('retrieving 2d data \n')
-            mid.write(paramstr + '\n')
-            mid.write('time ' + wtime + '\n')
-            mid.write('type ' + wtype + '\n')
-            mid.write('date ' + datestr + '\n')
-            mid.write('-------------------\n')
+        #paramstr = createparamstr(param2da, means=means, levtype=levtype)
         if options.run and levtype!='enda':
             paramstr = createparamstr(param2da, means=means, levtype='pl')
             print('Retrieving surface data')
@@ -683,6 +708,13 @@ for wtime in wtimelist:
                     'number'   : '0/1/2/3/4/5/6/7/8/9'
                     },
                      file2d + estr + tstr)
+        with open(mfilename, 'a') as mid: 
+            mid.write('retrieving 2d data \n')
+            mid.write(paramstr + '\n')
+            mid.write('time ' + wtime + '\n')
+            mid.write('type ' + wtype + '\n')
+            mid.write('date ' + datestr + '\n')
+            mid.write('-------------------\n')
                  
     if options.retrieve2df:
         paramstr = createparamstr(param2df, means=means,levtype='pl')
