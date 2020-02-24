@@ -1,8 +1,8 @@
 # vim: tabstop=4 expandtab shiftwidth=4 softtabstop=4
 #from ecmwfapi import ECMWFDataServer
 import cdsapi
-from calendar import monthrange
-from calendar import month_name
+#from calendar import monthrange
+#from calendar import month_name
 from optparse import OptionParser
 import sys
 import datetime
@@ -293,10 +293,10 @@ parser.add_option("--area", type="string" , dest="area" , default= "90/-180/-90/
                           North/West gives the upper left corner of the bounding box. \
                           South/East gives the lower right corner of the bounding box. \
                           Southern latitudes and western longiutdes are given negative numbers.") 
-parser.add_option("--check", action="store_false" , dest="run" , default='true', 
+parser.add_option("--check", action="store_false" , dest="run" , default=True 
                   help = "If set then simply echo command. Do not retrieve\
                           data. Will create the cfg file." )
-parser.add_option("--extra", action="store_true" , dest="extra" , default='False', 
+parser.add_option("--extra", action="store_true" , dest="extra" , default=False, 
                   help = "download UMOF, VMOF, TCLD, RGHS, DP2M into the \
                           surface file." )
 parser.add_option("--grid", type="string" , dest="grid" , default= "0.25/0.25",
@@ -318,7 +318,7 @@ parser.add_option("-q", type="int" , dest="timeperiod" , default=-99,
                   help = "Used in conjuction with --split to retrieve only one\
                           of the 3 hour time periods. \
                           Values 1-8 are valid.")
-parser.add_option("--test", action="store_true" , dest="test" , default='False', 
+parser.add_option("--test", action="store_true" , dest="test" , default=False, 
                   help = "run tests. \
                           " )
 
@@ -654,7 +654,8 @@ for wtime in wtimelist:
     pextra = ['UMOF','VMOF','DP2M','TCLD','USTR']
     pextraf = ['RGHS']
     #param2da = ['T02M', 'V10M', 'U10M', 'PRSS','PBLH', 'CAPE', 'SHGT']
-    param2da = ['T02M', 'V10M', 'U10M', 'PRSS','PBLH', 'CAPE']
+    # need 'SHGT' for model levels.
+    param2da = ['T02M', 'V10M', 'U10M', 'PRSS','PBLH', 'CAPE','SHGT']
     param2df = [precip, 'SHTF' , 'DSWF', 'LTHF']
     if options.extra:
        param2da.extend(pextra)
