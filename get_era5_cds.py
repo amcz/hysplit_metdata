@@ -293,7 +293,7 @@ parser.add_option("--area", type="string" , dest="area" , default= "90/-180/-90/
                           North/West gives the upper left corner of the bounding box. \
                           South/East gives the lower right corner of the bounding box. \
                           Southern latitudes and western longiutdes are given negative numbers.") 
-parser.add_option("--check", action="store_false" , dest="run" , default=True 
+parser.add_option("--check", action="store_false" , dest="run" , default=True,
                   help = "If set then simply echo command. Do not retrieve\
                           data. Will create the cfg file." )
 parser.add_option("--extra", action="store_true" , dest="extra" , default=False, 
