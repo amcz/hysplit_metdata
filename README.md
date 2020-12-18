@@ -66,5 +66,20 @@ The api key must be stored in $HOME/.cdsapirc
                  },
                  'outputname')
 
+## Surface data
+    c = cdsapi.Client()
+    c.retrieve('reanalysis-era5-single-levels',
+               {
+                 'variable' : ['2m_temperature','10m_u_component_of_wind','10m_v_component_of_wind','surface_pressure',\
+                               'boundary_layer_height','geopotential','friction_velocity'],
+                 'product_type' : 'reanalysis',
+                 'grid' : '0.25/0.25',
+                 'time' : timestr.split('/'),
+                 'year' : '2020',
+                 'month': '1',
+                 'day' : '1',
+                 'format' : 'grib'
+                 },
+                 'outputname')
 
 
