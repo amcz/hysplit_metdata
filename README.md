@@ -82,4 +82,25 @@ The api key must be stored in $HOME/.cdsapirc
                  },
                  'outputname')
 
+## Ensemble data pressure levels
+    paramstr = '130.128/131.128/132.128/135.128/157.128/128.128'
+    timestr = '00:00/03:00/06:00/09:00/12:00/15:00/18:00/21:00'
+    levels = [1000,975,950,925,900,875,850,825,800,775,750,700,650,600,550,500,450,400,350,300,250,225,200,175,150,125,100,70,50,30,20,10,7,5,3,2,1]
+    c = cdsapi.Client()
+    c.retrieve('reanalysis-era5-complete',
+              {
+                'class' : 'ea',
+                'expver' : '1',
+                'dataset' : 'era5',
+                'stream' : 'enda',
+                'levtype' : 'pl',
+                'origin' : 'all',
+                'format' : 'grib',
+                'date' : '2020-01-01',
+                'time' : timestr,
+                'param' : paramstr,
+                'levelist' : str.join('/',map(str,levels)),
+                'number' : '0/1/2/3/4/5/6/7/8/9'
+                },
+                'outputname')
 
