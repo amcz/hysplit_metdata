@@ -1,10 +1,12 @@
 
-# get_era5_cds 
+# hysplit_metdata
+
+### get_era5_cds.py 
 Code to download ERA5 meteorological data from ECMWF that will suitable for converting to ARL format for ingestion into HYSPLIT.
 The downloaded grib files will be suitable for use with the era52arl program available with the HYSPLIT distribution.
 
-get_era5_cds uses cdsapi module from Copernicus Data Service.
-ERA5 is now  only available through the cdsapi after.
+get_era5_cds.py uses cdsapi module from Copernicus Data Service.
+ERA5 is now  only available through the cdsapi.
 ecmwf-api is no longer supported.
 
 PYTHON 3.x
@@ -20,6 +22,8 @@ The program will write a file called new_era52arl.cfg. This file can be used as 
 It should be renamed  era52arl.cfg  to be read automatically by the program.
 Currently era52arl can only convert data on pressure levels.
 There are plans to add capability to convert data on the model levels.
+
+era52arl will also convert the ensemble data.
 
 # Possible Issues
 
