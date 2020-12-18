@@ -45,3 +45,26 @@ The api key must be stored in $HOME/.cdsapirc
 
 # hysplit_metdata uses the ecmwf-api which is no longer supported.
 
+# Sample Requests
+
+## Pressure level data
+    levels = [1000,975,950,925,900,875,850,825,800,775,750,700,650,600,550,500,450,400,350,300,250,225,200,175,150,125,100,70,50,30,20,10,7,5,3,2,1]
+    timestr = '00:00/01:00/02:00/03:00/04:00/05:00/06:00/07:00/08:00/09:00/10:00/11:00/12:00/13:00/14:00/15:00/16:00/17:00/18:00/19:00/20:00/21:00/22:00/23:00'
+    import cdsapi
+    c = cdsapi.Client()
+    c.retrieve('reanalysis-era5-pressure-levels',
+               {
+                 'variable' : ['temperature','u_component_of_wind','v_component_of_wind','vertical_velocity','relative_humidity','geopotential'],
+                 'pressure_level': list(map(str,levels)),
+                 'product_type' : 'reanalysis',
+                 'grid' : '0.25/0.25',
+                 'time' : timestr.split('/'),
+                 'year' : '2020',
+                 'month': '1',
+                 'day' : '1',
+                 'format' : 'grib'
+                 },
+                 'outputname')
+
+
+
