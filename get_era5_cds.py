@@ -98,7 +98,7 @@ def getvars(means=False, tm=1, levtype='pl'):
     #sname['SHTF'] = ['sshf','146', -1*amult,'146.128', 'surface_sensible_heat_flux'] #units J/m^2 (surface sensible heat flux) (divide by 3600 to get W/m^2)     
     # HYSPLIT convention is that upward sensible heat flux should be positive. 
     # Multiply by -1
-    sname['LHTF'] = ['slhf','147', -1*amult,'147.128','surface_latent_heat_flux'] #same as sshf            
+    sname['LTHF'] = ['slhf','147', -1*amult,'147.128','surface_latent_heat_flux'] #same as sshf            
     if instant:
         #instaneous fluxes may be more desireable since use instanteous winds.
         sname['SHTF'] =\
