@@ -31,7 +31,7 @@ Users may not want to use friction velocity, HYSPLIT code USTR, grib short name 
 This quantity is usually used in the default setting KBLS=1 to calculate stability (see https://ready.arl.noaa.gov/hysplitusersguide/S625.htm).
 
 Using this may lead to inaccurate estimations of stability and undermixing which may be related to this issue.
-https://confluence.ecmwf.int/display/CKB/ERA5+instantaneous+surface+stress+and+friction+velocity+over+the+oceans
+https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation
 
 To make sure HYSPLIT does not use the friction velocity from ERA5 the following can be done.
 
