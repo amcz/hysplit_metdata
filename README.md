@@ -43,11 +43,11 @@ edit the era52arl.cfg file which is input into the era52arl program and remove t
 
 * edit the get_era5_cds.py so that USTR is not downloaded.
 
-### latent heat flux (LTHF)
+###heat fluxes (LTHF, SHTF)
 
 HYSPLIT convention is that upward heat flux is positive. ERA5 uses the opposite convention.
 
-Make sure that a conversion factor of -1 is used in the era52arl.cfg file. 
+Make sure that a conversion factor is negative in the era52arl.cfg file. 
 
 
 # installing cdsapi
