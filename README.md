@@ -27,6 +27,7 @@ era52arl will also convert the ensemble data.
 
 # Possible Issues
 
+### friction velocity
 Users may not want to use friction velocity, HYSPLIT code USTR, grib short name zust.
 This quantity is usually used in the default setting KBLS=1 to calculate stability (see https://ready.arl.noaa.gov/hysplitusersguide/S625.htm).
 
@@ -41,6 +42,13 @@ To make sure HYSPLIT does not use the friction velocity from ERA5 the following 
 edit the era52arl.cfg file which is input into the era52arl program and remove the ustr column. Then the conversion program will not add the friction velocity to the ARL file.
 
 * edit the get_era5_cds.py so that USTR is not downloaded.
+
+### latent heat flux (LTHF)
+
+HYSPLIT convention is that upward heat flux is positive. ERA5 uses the opposite convention.
+
+Make sure that a conversion factor of -1 is used in the era52arl.cfg file. 
+
 
 # installing cdsapi
 https://cds.climate.copernicus.eu/api-how-to
