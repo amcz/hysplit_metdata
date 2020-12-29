@@ -25,6 +25,11 @@ There are plans to add capability to convert data on the model levels.
 
 era52arl will also convert the ensemble data.
 
+### era52arl.f
+The fortran program era52arl.f is included in the data2arl directory of the HYSPLIT distribution.
+Beta versions may be included here. era52arl.f requires eccodes as well as libraries included in the HYSPLIT distribution 
+to compile. 
+
 # Possible Issues
 
 ### friction velocity
@@ -116,3 +121,11 @@ The api key must be stored in $HOME/.cdsapirc
                 },
                 'outputname')
 
+# Checking your grib file
+
+eccodes has some useful command line tools to check what is in your grib files.
+https://confluence.ecmwf.int/display/ECC/GRIB+tools
+
+Example
+
+    gribdump gribfile.grib > out
