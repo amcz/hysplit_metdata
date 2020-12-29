@@ -113,6 +113,7 @@ The api key must be stored in $HOME/.cdsapirc
                 'levtype' : 'pl',
                 'origin' : 'all',
                 'format' : 'grib',
+                'grid' : '0.25/0.25',
                 'date' : '2020-01-01',
                 'time' : timestr,
                 'param' : paramstr,
@@ -120,6 +121,31 @@ The api key must be stored in $HOME/.cdsapirc
                 'number' : '0/1/2/3/4/5/6/7/8/9'
                 },
                 'outputname')
+                
+## Ensemble data surface variables
+
+Note that slhf (surface latent heat flux), sshf (surface sensible heat flux), and tp (total precipitation) are not
+currently available for the ensemble (enda stream).
+
+     paramstr = '167.128/166.128/165.128/134.128/159.128/59.128/129.128/'
+     c = cdsapi.Client()
+     c.retrieve('reanalysis-era5-complete',
+              {
+                'class' : 'ea',
+                'expver' : '1',
+                'dataset' : 'era5',
+                'stream' : 'enda',
+                'levtype' : 'sfc',
+                'origin' : 'all',
+                'format' : 'grib',
+                'grid' : '0.25/0.25',
+                'date' : '2020-01-01',
+                'time' : timestr,
+                'param' : paramstr,
+                'number' : '0/1/2/3/4/5/6/7/8/9'
+                },
+                'outputname')
+
 
 # Checking your grib file
 
