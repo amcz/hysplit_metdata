@@ -48,7 +48,7 @@ edit the era52arl.cfg file which is input into the era52arl program and remove t
 
 * edit the get_era5_cds.py so that USTR is not downloaded.
 
-###heat fluxes (LTHF, SHTF)
+### heat fluxes (LTHF, SHTF)
 
 HYSPLIT convention is that upward heat flux is positive. ERA5 uses the opposite convention.
 
