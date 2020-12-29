@@ -129,3 +129,9 @@ https://confluence.ecmwf.int/display/ECC/GRIB+tools
 Example
 
     gribdump gribfile.grib > out
+    
+# conversion factors
+
+surface radition accumulated parameters (slhf, ssrd, sshf)
+
+https://confluence.ecmwf.int/pages/viewpage.action?pageId=155337784
