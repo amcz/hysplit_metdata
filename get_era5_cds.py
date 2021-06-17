@@ -36,10 +36,15 @@ if the -g option is set will write a shell script to run the era52arl utility.
 9/10/2018 converted to python3 from python 2.7
 """
 
-def getvars(means=False, tm=1, levtype='pl'):
-    instant=True
-    if tm==1: amult = '0.00028'  #1/3600 s
-    if tm==3: amult = '9.26e-5'
+def getvars(means=False, tm=1, levtype='pl',instant=True):
+
+    # HYSPLIT convention is that upward sensible heat flux should be positive. 
+    # Multiply by -1
+    if int(tm)==1: amult = '-0.00028'  #1/3600 s
+    elif int(tm)==3: amult = '-9.26e-5'
+    else: 
+       print('warning tm value not 1 or 3 ...... {}'.format(tm))
+       amult='1'
     sname={}
     #3d fields. pressure levels. Instantaneous.
     #REQUIRED
@@ -53,6 +58,7 @@ def getvars(means=False, tm=1, levtype='pl'):
     sname['WWND'] = ["w", '135', '0.01','135.128','vertical_velocity', '2','8']   #units Pa/s. convert to hPa/s for HYSPLIT
     sname['RELH'] = ["r", '157', '1.0', '157.128','relative_humidity']    #units %
     sname['HGTS'] = ["z", '129', '0.102','129.128','geopotential','3','4']  #units m^2 / s^2. Divide by 9.8m/s^2 to get meters.
+    #specific humidity. redundant since have RELH
     #sname['SPHU']= "q"     #units kg / kg category 1, number 0. multiplier is 1   #specific humidity. redundant since have RELH
 
     #3d fields. model levels
@@ -71,10 +77,12 @@ def getvars(means=False, tm=1, levtype='pl'):
  
     #2m dew point temperature  : Units K : level_indicator 1 , gds_grid_type 0
     sname['DP2M'] = ['2d', '168', '1.0','168.128','2m_dewpoint_temperature']   
+
     sname['SHGT'] = ["z" , '129', '0.102','129.128','geopotential'] #geopotential height  
     sname['CAPE'] = ["cape" , '59', '1.0','59.128',  #Instantaneous. convective potential energy : units  J/kg 
                      'convective_available_potential_energy']
     sname['PBLH'] = ["blh" , '159', '1.0','159.128','boundary_layer_height'] #boundary layer height : units m 
+
     #Turbulent surface stresses are instantaneous.
     #These are same as Momentum fluxes.
     #Can use these in place of USTR
@@ -83,40 +91,47 @@ def getvars(means=False, tm=1, levtype='pl'):
     sname['VMOF'] = ['inss','230', '1.0','230',  #units of N/m2  northward turbulent surface stress     
                      'instantaneous_northward_turbulent_surface_stress']
 
+    #Not used.
     sname['XXXX'] = ['boundary_layer_dissipation']
+
     #2D/surface forecast fields. 
     #OPTIONAL
     sname['TPP1'] = ['tp','228','1.0','228.128','total_precipitation']       #Accumulated precipitation. units of m. multiplier is 1.        
+    # TPP3 is for the ensemble output which is every 3 hours.
     sname['TPP3'] = ['tp','228','1.0','228.128','total_precipitation']       #Accumulated precipitation. units of m. multiplier is 1.        
     sname['RGHS'] = ['fsr','244','1.0', "244.128",'forecast_surface_roughness']   #forecast surface roughnes : units m
 
     #It looks like the means are not output every hour so do not use them.
-    #if means:
-    #    sname['SHTF'] = ['msshf','146', '1.0', '33.235'] #units W/m^2 (surface sensible heat flux)      
-    #    sname['LTHF'] = ['mslhf','34', '1.0', '34.235']  #latent heat flux. same as sshf            
-    #Also having trouble getting accumulated sshf to convert.
-    #sname['SHTF'] = ['sshf','146', -1*amult,'146.128', 'surface_sensible_heat_flux'] #units J/m^2 (surface sensible heat flux) (divide by 3600 to get W/m^2)     
-    # HYSPLIT convention is that upward sensible heat flux should be positive. 
-    # Multiply by -1
-    sname['LTHF'] = ['slhf','147', -1*amult,'147.128','surface_latent_heat_flux'] #same as sshf            
-    if instant:
-        #instaneous fluxes may be more desireable since use instanteous winds.
+    if means:
+        sname['SHTF'] = ['msshf','146', '1.0', '33.235'] #units W/m^2 (surface sensible heat flux)      
+        sname['LTHF'] = ['mslhf','34', '1.0', '34.235']  #latent heat flux. same as sshf            
+    elif instant:
+        # instaneous fluxes may be more desireable since use instanteous winds.
         sname['SHTF'] =\
                       ['ishf','231','-1.0','231.128',
                        'instantaneous_surface_sensible_heat_flux'] #instantaneous SHTF. units W/m^2.
+        # no instantaneous LTHF that I can find.
+        sname['LTHF'] = ['slhf','147', amult,'147.128','surface_latent_heat_flux'] #same as sshf            
+    else:
+    # These are currently not availalbe in enda (ensemble) stream.
+    # possibly because accumulation times don't match.
+        sname['SHTF'] = ['sshf','146', amult,'146.128', 'surface_sensible_heat_flux'] #units J/m^2 (surface sensible heat flux) (divide by 3600 to get W/m^2)     
+    # HYSPLIT convention is that upward sensible heat flux should be positive. 
+    # Multiply by -1
+        sname['LTHF'] = ['slhf','147', amult,'147.128','surface_latent_heat_flux'] #same as sshf            
 
     sname['DSWF'] = ['ssrd','169', amult,'169.128',
                      'surface_solar_radiation_downwards']  #Accumulated. units J/m^2         
     sname['USTR'] = ['zust','3', '1.0','3.228','friction_velocity']      #units of m/s (multiplier should be 1)      
 
 
-    ###"The accumulations in the short forecasts (from 06 and 18 UTC) of ERA5 are treated differently 
-    ###compared with those in ERA-INTERIM (where they
-    ###were from the beginning of the forecast to the forecast step). 
-    ###In the short forecasts of ERA5, the accumulations are since the previous post processing (archiving)
-    ###so for: HRES - accumulations are in the hour ending at the forecast step.
-    ###mean rate parameters in ERA5 are similar to accumulations except that the quantities 
-    ###are averaged instead of accumulated over the period so the units
+    ### The accumulations in the short forecasts (from 06 and 18 UTC) of ERA5 are treated differently 
+    ### compared with those in ERA-INTERIM (where they
+    ### were from the beginning of the forecast to the forecast step). 
+    ### In the short forecasts of ERA5, the accumulations are since the previous post processing (archiving)
+    ### so for: HRES - accumulations are in the hour ending at the forecast step.
+    ### mean rate parameters in ERA5 are similar to accumulations except that the quantities 
+    ### are averaged instead of accumulated over the period so the units
     ### include "per second"
     ### step for forecast are 1 through 18
     return sname
@@ -125,12 +140,12 @@ def write_cfg(tparamlist, dparamlist, levs, tm=1, levtype='pl', cfgname = 'new_e
     """writes a .cfg file which is used by the fortran conversion program era52arl to
        read the grib files and convert them into a meteorological file that HYSPLTI can use.
     """
-    #Key is HYSPLIT name
-    #value is list of [ERA5 short name, ERA5 indicatorOfParamter, unit conversion]
-    #unit conversion converts from units of the ERA5 to units that HYSPLIT expects.
-    #the short name and indicatorOfParameter can be found by doing a grib_dump
-    #or tables in the ERA5 documentation - 
-    #https://software.ecmwf.int/wiki/display/CKB/ERA5+data+documentation#ERA5datadocumentaion-Paramterlistings
+    # Key is HYSPLIT name
+    # value is list of [ERA5 short name, ERA5 indicatorOfParamter, unit conversion]
+    # unit conversion converts from units of the ERA5 to units that HYSPLIT expects.
+    # the short name and indicatorOfParameter can be found by doing a grib_dump
+    # or tables in the ERA5 documentation - 
+    # https://software.ecmwf.int/wiki/display/CKB/ERA5+data+documentation#ERA5datadocumentaion-Paramterlistings
     print(dparamlist)
     if levtype=='pl' or levtype=='enda':
        aaa=1
@@ -191,12 +206,12 @@ def write_cfg(tparamlist, dparamlist, levs, tm=1, levtype='pl', cfgname = 'new_e
          fid.write('/\n')
 
 
-def createparamstr(paramlist, means=True, levtype='pl'):
+def createparamstr(paramlist, means=False, levtype='pl',instant=True):
     """contains a dictionary of codes for the parameters to be retrieved. Input a list of string descriptors of the
        parameters. Output is a string of codes which can be used in the server.retrieve() function.
        4 letter codes used for dictionary keys correspond to codes used by fortran ecmwf2arl converter. 
     """
-    param=getvars(means=means) 
+    param=getvars(means=means,instant=instant) 
     paramstr = ''
     i=0
     knum=4
@@ -659,6 +674,7 @@ for wtime in wtimelist:
     # need 'SHGT' for model levels.
     param2da = ['T02M', 'V10M', 'U10M', 'PRSS','PBLH', 'CAPE','SHGT']
     param2df = [precip, 'SHTF' , 'DSWF', 'LTHF']
+   
     if options.extra:
        param2da.extend(pextra)
        param2df.extend(pextraf)
@@ -689,8 +705,13 @@ for wtime in wtimelist:
                          },
                           file2d + estr + tstr)
         if options.run and levtype=='enda':
-            paramstr = createparamstr(param2da, means=means, levtype='enda')
-            print('Retrieving ensemble')
+            print( 'RETRIEVING 2d ' + ' '.join(param2da) )
+            ### TESTING HERE
+            #paramstr =\
+            #         createparamstr(['LTHF','SHTF','TPP3'],means=True,levtype='enda',instant=False)  
+            paramstr = createparamstr(param2da, means=False, instant=True,levtype='enda')
+            print('Retrieving ensemble. heat fluxes and precip not available.')
+            print( paramstr )
             rstr = 'reanalysis-era5-complete'
             server.retrieve(rstr,
                     {
