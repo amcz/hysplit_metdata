@@ -359,7 +359,7 @@ for wtime in wtimelist:
     ###need to set the grid parameter otherwise will not be on regular grid and converter will not handle.
     ####retrieving 3d fields
     if levtype=='pl':
-       param3d = ['TEMP' , 'UWND', 'VWND' , 'WWND' , 'RELH' , 'HGTS' ]
+       param3d = ['TEMP' , 'UWND', 'VWND' , 'WWND' , 'RELH','HGTS' ]
        rstr = 'reanalysis-era5-pressure-levels'
        estr='pl'
     elif levtype=='ml':
@@ -372,7 +372,7 @@ for wtime in wtimelist:
        estr='enda'
     f3list.append(file3d+ estr + tstr)
     if options.retrieve3d:
-        print( 'RETRIEVING 3d ' + levtype + ' '.join(param3d) )
+        print( 'RETRIEVING 3d {} {}'.format(levtype, ' '.join(param3d)))
         levs = list(map(str, levs))
         print('Retrieve levels ' , levs)
         paramstr = era5utils.createparamstr(param3d, means=means, levtype=levtype)
@@ -484,7 +484,7 @@ for wtime in wtimelist:
     pextraf = ['RGHS']
     #param2da = ['T02M', 'V10M', 'U10M', 'PRSS','PBLH', 'CAPE', 'SHGT']
     # need 'SHGT' for model levels.
-    param2da = ['T02M', 'V10M', 'U10M', 'PRSS','PBLH', 'CAPE','SHGT']
+    param2da = ['T02M', 'V10M', 'U10M', 'PRSS','PBLH', 'CAPE','SHGT','MSLP']
     param2df = [precip, 'SHTF' , 'DSWF', 'LTHF']
    
     if options.extra:

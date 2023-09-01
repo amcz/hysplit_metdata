@@ -73,6 +73,7 @@ def getvars(means=False, tm=1, levtype='pl',instant=True):
     sname['V10M'] = ['10v','166', '1.0', '166.128','10m_v_component_of_wind']  #units m/s       #Analysis (needed) ERA5
     #OPTIONAL
     sname['PRSS'] = ['sp' ,'134', '0.01','134.128', 'surface_pressure'] #Instantaneous. Units Pa        #multiplier of 0.01 for hPa.
+    sname['MSLP'] = ['msl' ,'151', '0.01','xxx.xxx', 'mean_sea_level_pressure','3','0'] #Instantaneous. Units Pa        #multiplier of 0.01 for hPa.
     sname['TCLD'] = ['tcc','164', '1.0', '164.128','total_cloud_cover']  #total cloud cover 0-1  
  
     #2m dew point temperature  : Units K : level_indicator 1 , gds_grid_type 0
@@ -135,6 +136,19 @@ def getvars(means=False, tm=1, levtype='pl',instant=True):
     ### include "per second"
     ### step for forecast are 1 through 18
     return sname
+
+def pressure_levels(toplevel=1):
+    levs = list(range(750,1025,25)) + list(range(300,750,50)) + list(range(100,275,25)) + [1,2,3,5,7,10,20,30,50,70]
+    levs = sorted(levs, reverse=True)
+    if toplevel != 1: 
+       levs = [y for y in levs if y>=options.toplevel]
+       levs = sorted(levs, reverse=True)
+       levstr = str(levs[0])
+    else:
+       levstr = ''
+    for lv in levs[1:]:
+       levstr += '/' + str(lv)  
+    return levs
 
 
 def model_levels_default():

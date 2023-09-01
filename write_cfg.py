@@ -22,18 +22,19 @@ PYTHON 3.x
 
 ##Parse command line arguments and set defaults#####
 parser = OptionParser()
-parser.add_option("-y", type="int" , dest="year", default=2000,
-                  help="{2000} Year to retrieve. type integer.")
+parser.add_option("-t", type="str" , dest="levtype", default='ml',
+                  help="ml for model levels, pl for pressure levels")
 
 
 #If no retrieval options are set then retrieve 2d data and 2d data in one file.
 (options, args) = parser.parse_args()
-
+levtype = options.levtype
 
 param2da = ['T02M', 'V10M', 'U10M', 'PRSS','PBLH', 'CAPE','SHGT']
 tm=1
-levtype='ml'
+print('Level type', levtype)
 if levtype=='pl':
+   levs = era5utils.pressure_levels()
    param3d = ['TEMP' , 'UWND', 'VWND' , 'WWND' , 'RELH' , 'HGTS' ]
    rstr = 'reanalysis-era5-pressure-levels'
    estr='pl'
