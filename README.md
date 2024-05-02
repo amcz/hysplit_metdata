@@ -154,7 +154,7 @@ https://confluence.ecmwf.int/display/ECC/GRIB+tools
 
 Example
 
-    gribdump gribfile.grib > out
+    grib_dump gribfile.grib > out
     
 # conversion factors
 
