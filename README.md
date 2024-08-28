@@ -33,11 +33,14 @@ to compile.
 # Possible Issues
 
 ### friction velocity
+
+"The instantaneous turbulent surface stress components (eastward and northward) and friction velocity tend to be too small"
+https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation (search for friction velocity)
+
 Users may not want to use friction velocity, HYSPLIT code USTR, grib short name zust.
 This quantity is usually used in the default setting KBLS=1 to calculate stability (see https://ready.arl.noaa.gov/hysplitusersguide/S625.htm).
 
 Using this may lead to inaccurate estimations of stability and undermixing which may be related to this issue.
-https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation (search for friction velocity)
 
 To make sure HYSPLIT does not use the friction velocity from ERA5 the following can be done.
 
