@@ -161,3 +161,21 @@ Example
 surface radition accumulated parameters (slhf, ssrd, sshf)
 
 https://confluence.ecmwf.int/pages/viewpage.action?pageId=155337784
+
+
+# How to make your own converter for grib2 files
+
+You will need the following
+
+* eccodes library from ECMWF
+
+* ARL packing functions from 
+
+The grib2 file is made of chunks called 'messages'
+
+
+
+
+
+
+
