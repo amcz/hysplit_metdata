@@ -197,6 +197,10 @@ PROGRAM era52arl
   character(len=6),dimension(maxvar) :: atmgrb, sfcgrb ! ERA5 variable short names
   character(len=4),dimension(maxvar) :: atmarl, sfcarl ! ARL variable names
   integer         ,dimension(maxlev) :: plev ! ARL variable names
+  real        ,dimension(maxlev*2+2) :: pv  ! hybrid coordinates (ap,b)
+  integer                            :: npv, nhyb ! size of hybrid arrays
+  real            ,dimension(maxlev) :: ap, b  ! Hybrid coordinates
+  real            ,dimension(maxlev) :: z_encoded  ! Encoded levels for ARL file.
 
   integer, dimension(maxvar)         :: sfcvar 
   integer, dimension(maxvar,maxlev)  :: atmvar 
@@ -248,7 +252,7 @@ PROGRAM era52arl
   REAL,         INTENT(IN)   :: tlat1,tlat2   ! tangent point   
   INTEGER,      INTENT(IN)   :: numsfc        ! numb sfc var in cfg
   INTEGER,      INTENT(IN)   :: numatm        ! numb atm var in cfg
-  INTEGER,      INTENT(IN)   :: levels(:)     ! level value each atm
+  REAL,         INTENT(IN)   :: levels(:)     ! level value each atm
   INTEGER,      INTENT(IN)   :: sfcvar(:)     ! mark each var found 
   INTEGER,      INTENT(IN)   :: atmvar(:,:)   ! mark each var by level
   CHARACTER(4), INTENT(IN)   :: atmarl(:)     ! output character ID
@@ -394,6 +398,8 @@ PROGRAM era52arl
   allocate(ndxlevels(numlev))
   DO iii=1, numlev
      ndxlevels(iii) = plev(iii)
+     z_encoded(iii) = plev(iii)  ! Encode pressure level in ARL file
+                                 ! unless overridden further down for hybrid.
   END DO
 
   open(kunit,file='ERA52ARL.MESSAGE')  ! open message file
@@ -490,6 +496,7 @@ PROGRAM era52arl
       IF (iret.NE.grib_success) GOTO 900
 
       ! coord is used in makndx subroutine
+      npv = -1
       DO i=1,num_msg  !loop through 3D file messages
          call grib_get(igrib(i),'levelType',ltype)
          IF(trim(ltype).EQ.'pl')THEN
@@ -520,6 +527,15 @@ PROGRAM era52arl
             call grib_get(igrib(i),'shortName',value)
             call grib_get(igrib(i),'parameterCategory',pcat)
             call grib_get(igrib(i),'parameterNumber',pnum)
+            ! Read hybrid coordinates (on interfaces)
+            if (npv.eq.-1) then
+              call grib_get_size(igrib(i),'pv',npv)
+              nhyb = npv/2-1
+              call grib_get(igrib(i),'pv',pv)
+              ! Get ap and b coordinates at mid-levels.
+              ap(1:nhyb) = (pv(1:nhyb) + pv(2:nhyb+1)) / 2
+              b(1:nhyb) = (pv(nhyb+2:npv-1) + pv(nhyb+3:npv)) / 2
+            end if
             !WRITE(*,*) 'value, pcat, pnum ', trim(value), pcat, pnum
             kv=-1
             do k=1,numatm
@@ -555,6 +571,8 @@ PROGRAM era52arl
                    IF((UDIF).and.(atmarl(kv).eq.'WWND'))THEN
                     atmvar(numatm+1, kl) = 1  !set difw field for each level
                    END IF
+                   ! Encode hybrid coorindate (whole part is ap, mantissa is b).
+                   z_encoded(kl) = nint(ap(levhgt)/100) + b(levhgt)
                END IF
    
             END IF 
@@ -817,7 +835,7 @@ PROGRAM era52arl
   END IF
 
   CALL MAKNDX (ARLCFG_NAME,MODEL,NXP,NYP,NUMLEV,CLAT,CLON,DLAT,DLON,    &
-                  RLAT,RLON,TLAT1,TLAT2,NUMSFC,NUMATM,NDXLEVELS,              &
+                  RLAT,RLON,TLAT1,TLAT2,NUMSFC,NUMATM,Z_ENCODED,        &
                   SFCVAR,ATMVAR,ATMARL,SFCARL,COORD)
 
   deallocate(ndxlevels)
@@ -1170,7 +1188,7 @@ SUBROUTINE MAKNDX (FILE_NAME,MODEL,NXP,NYP,NZP,CLAT,CLON,DLAT,DLON,   &
   REAL,         INTENT(IN)   :: tlat1,tlat2   ! tangent point   
   INTEGER,      INTENT(IN)   :: numsfc        ! numb sfc var in cfg
   INTEGER,      INTENT(IN)   :: numatm        ! numb atm var in cfg
-  INTEGER,      INTENT(IN)   :: levels(:)     ! level value each atm
+  REAL,         INTENT(IN)   :: levels(:)     ! level value each atm
   INTEGER,      INTENT(IN)   :: sfcvar(:)     ! mark each var found 
   INTEGER,      INTENT(IN)   :: atmvar(:,:)   ! mark each var by level
   CHARACTER(4), INTENT(IN)   :: atmarl(:)     ! output character ID

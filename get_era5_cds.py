@@ -214,6 +214,9 @@ elif levtype=='ml':
     cfglevs = list(range(levstart,138,step))
     # need to be written from bottom level (137) to top for era52arl.cfg
     cfglevs = cfglevs[::-1]
+    # Can only handle 99 levels in ARL files and in HYSPLIT
+    # Since surface level takes up one of those slots, only have 98 available?
+    cfglevs = cfglevs[:98]
 else:
     levs = []
 ##########################################################################################
@@ -235,9 +238,6 @@ else:
    f2d = options.dir + options.fname  + '.2d'
    ftppt = options.dir + options.fname  + '.2df'
    
-if levtype == 'ml':
-   f3d += '.ml'
- 
 file3d = options.dir + f3d
 file2d = options.dir + f2d
 filetppt = options.dir + ftppt
@@ -423,7 +423,7 @@ for wtime in wtimelist:
                     'time'     :  wtime,
                     'step'     : '0',
                     },
-                     'out.grib')
+                     file3d + estr + tstr)
 
             #server.retrieve('reanalysis-era5-complete', {
             #    'class': 'ea',
