@@ -121,8 +121,9 @@ def getvars(means=False, tm=1, levtype='pl',instant=True):
     # Multiply by -1
         sname['LTHF'] = ['slhf','147', amult,'147.128','surface_latent_heat_flux'] #same as sshf            
 
-    sname['DSWF'] = ['ssrd','169', amult,'169.128',
-                     'surface_solar_radiation_downwards']  #Accumulated. units J/m^2         
+    # dswf positive in both ERA5 and HYSPLIT
+    sname['DSWF'] = ['ssrd','169', -1*amult,'169.128',
+                     'surface_solar_radiation_downwards']  #Accumulated. units J/m^2-1* t
     sname['USTR'] = ['zust','3', '1.0','3.228','friction_velocity']      #units of m/s (multiplier should be 1)      
 
 
